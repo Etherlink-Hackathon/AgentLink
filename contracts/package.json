@@ -1,0 +1,16 @@
+{
+  "name": "etherlink-dex-contracts",
+  "version": "1.0.0",
+  "description": "ERC-4626 Vault contracts for the Etherlink Arbitrage Agent",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.3"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0"
+  }
+}

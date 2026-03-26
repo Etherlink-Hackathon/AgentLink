@@ -1,0 +1,20 @@
+{
+  // OpenClaw Agent Configuration for Etherlink Omni-DEX Arbitrage Agent
+  "agent": {
+    "name": "Etherlink Arbitrage Agent",
+    "description": "Autonomous DeFi arbitrage agent for Etherlink Mainnet",
+    "instructions": "./AGENT.md"
+  },
+
+  // MCP Server Connections
+  "mcpServers": {
+    "etherlink": {
+      "command": "npx",
+      "args": ["-y", "etherlink-mcp-server"],
+      "env": {
+        "RPC_URL": "https://node.mainnet.etherlink.com",
+        "CHAIN_ID": "42793"
+      }
+    }
+  }
+}
