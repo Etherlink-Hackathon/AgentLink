@@ -17,20 +17,22 @@ This is a modern Monorepo with three core components:
 
 | Component | Path | Description |
 | ---- | ---- | ---- |
-| **Frontend** | `/frontend` | Sleek React + Vite Web3 UI for users to deposit XTZ/USDC and monitor their yield. |
-| **Contracts** | `/contracts` | ERC-4626 Vault solidity contract ensuring capital safety and strictly enforcing the AI's "Strategist" boundaries. |
-| **Backend** | `/backend` | The OpenClaw AI Agent running continuously, dynamically finding token spreads and piping rebalance transactions back to the vault. |
+| **Frontend** | `/frontend` | Sleek Vite + Vue Web3 dashboard for users to deposit XTZ/USDC and monitor real-time arbitrage yield. |
+| **Contracts** | `/contracts` | ERC-4626 Vault solidity contract ensuring capital safety and strictly enforcing the AI strategist's boundaries. |
+| **Backend** | `/backend` | OpenClaw AI Agent running on Node.js, dynamically discovering token spreads and executing rebalance transactions via the vault. |
 
 ---
 
 ## Technical Flow
 
-1. **User Deposit**: User visits the Frontend, connects wallet, and deposits `USDC` into `ArbitrageVault.sol`. They receive `arbUSDC` shares.
-2. **Pool Discovery**: The Backend agent regularly polls Blockscout and GeckoTerminal for dynamic liquidity across the Etherlink L2 network.
-3. **Execution**: The Agent identifies a mispricing (e.g. USDC/WXTZ on DexA vs DexB). 
-4. **Strategist Action**: The Agent builds a transaction targeting `ArbitrageVault.executeArbitrage()` and signs it using its strictly limited Strategist wallet.
-5. **On-Chain Enforcement**: The Vault contract executes the trade, reverting if the net balance of the vault doesn't grow.
-6. **Yield**: The user's `arbUSDC` shares passively accrue value from the arbitrage profits.
+1. **User Deposit**: Users connect their wallet to the Vue Dashboard and deposit `USDC` (or other supported assets) into the `ArbitrageVault`. The vault issues shares (`vUSDC`) representing their stake.
+2. **Pool Discovery**: The Backend agent (Strategist) monitors Etherlink DEXs (V3Swap, EtherlinkDex, etc.) for price discrepancies using GeckoTerminal and on-chain data.
+3. **Execution**: When a profitable loop is found, the Agent calls `executeArbitrage()` on the vault.
+4. **On-Chain Enforcement**: 
+    - The vault verifies the Strategist's signature.
+    - The vault executes the swaps across whitelisted DEX routers.
+    - **Mathematical Guard**: The transaction reverts if `finalAssets <= initialAssets`, ensuring the vault never loses money on a trade.
+5. **Yield Accrual**: Profits remain in the vault, increasing the value of each share. Users can withdraw their principal and accrued yield at any time.
 
 ---
 
@@ -41,8 +43,7 @@ Requires `etherlink-mcp-server` to be running.
 ```bash
 cd backend
 npm install
-cp .env.example .env
-npm start
+npm run dev
 ```
 
 ### 2. Frontend (The Yield Dashboard)
@@ -53,10 +54,19 @@ npm run dev
 ```
 
 ### 3. Contracts
+Integrated with Hardhat for testing and deployment.
 ```bash
 cd contracts
-# Standard Hardhat or Foundry commands to test/deploy the vault
+npx hardhat test
 ```
+
+---
+
+## Features
+- **ERC-4626 Standard**: Full compatibility with DeFi protocols.
+- **Strategist Role**: Strictly limited permissions for the AI agent.
+- **Profit Enforcement**: Hardcoded requirement for net asset growth per trade.
+- **Real-time Monitoring**: Dashboard with TVL, APY, and revenue stats.
 
 ---
 

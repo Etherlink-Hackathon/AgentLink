@@ -126,6 +126,22 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
     }
 
     /**
+     * @dev Standard ERC-4626 deposit function.
+     * Users can deposit the base asset and receive vault shares.
+     */
+    function deposit(uint256 assets, address receiver) public virtual override returns (uint256) {
+        return super.deposit(assets, receiver);
+    }
+
+    /**
+     * @dev Standard ERC-4626 withdraw function.
+     * Users can withdraw their principal and profits by burning shares.
+     */
+    function withdraw(uint256 assets, address receiver, address owner) public virtual override returns (uint256) {
+        return super.withdraw(assets, receiver, owner);
+    }
+
+    /**
      * @dev Prevents Strategist from withdrawing directly.
      * Handled implicitly by extending ERC4626, where the standard withdraw/redeem
      * functions strictly burn shares belonging to the owner.

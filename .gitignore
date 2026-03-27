@@ -4,3 +4,6 @@ dist/
 .env
 *.log
 /flame-wager-frontend/*
+contracts/cache/*
+contracts/typechain-types/*
+contracts/artifacts/*
