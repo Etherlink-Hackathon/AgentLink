@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from "vue"
 import VaultsFilters from "./VaultsFilters.vue"
-import VaultCard from "./VaultCard.vue"
+import { VaultCard, VaultCardLoading } from "@/components/local/VaultCard"
 import Pagination from "@ui/Pagination.vue"
 import Breadcrumbs from "@ui/Breadcrumbs.vue"
 import Button from "@ui/Button.vue"
@@ -12,9 +12,13 @@ const defaultFilters = {
 	symbols: [
 		{ name: "ETH", active: false },
 		{ name: "WBTC", active: false },
-		{ name: "TEZ", active: false },
+		{ name: "XTZ", active: false },
 		{ name: "USDC", active: false },
 		{ name: "USDT", active: false },
+		{ name: "LYZI", active: false },
+		{ name: "TZPEPE", active: false },
+		{ name: "mBASIS", active: false },
+		{ name: "mTBILL", active: false },
 	],
 	statuses: [
 		{ name: "New", active: false, icon: "event_new", color: "purple" },
@@ -100,9 +104,9 @@ onMounted(async () => {
 
 		<Flex direction="column" gap="32">
 			<Flex direction="column" gap="8">
-				<h1>Sovereign Vaults</h1>
+				<h1>All Vaults</h1>
 				<Text size="14" height="16" weight="500" color="tertiary">
-					Explore and manage institutional-grade arbitrage strategies on Etherlink.
+					Explore and manage arbitrage strategies on Etherlink.
 				</Text>
 			</Flex>
 
@@ -128,9 +132,8 @@ onMounted(async () => {
 				/>
 
 				<div :class="$style.vaults_base">
-					<div v-if="isLoading" :class="$style.loading">
-						<Icon name="loading" size="40" color="brand" />
-						<Text size="14" weight="600" color="secondary">Fetching Vaults...</Text>
+					<div v-if="isLoading" :class="$style.grid">
+						<VaultCardLoading v-for="i in 6" :key="i" />
 					</div>
 
 					<template v-else>

@@ -6,11 +6,16 @@ import VaultDeposit from "./VaultDeposit.vue"
 import VaultPersonalStats from "./VaultPersonalStats.vue"
 import VaultEarnings from "./VaultEarnings.vue"
 import VaultHistory from "./VaultHistory.vue"
+import VaultActivePools from "./VaultActivePools.vue"
+import VaultBaseLoading from "../../local/VaultCard/VaultBaseLoading.vue"
 import Breadcrumbs from "@ui/Breadcrumbs.vue"
 import Badge from "@ui/Badge.vue"
 import Button from "@ui/Button.vue"
 import { analytics } from "@sdk"
 import { fetchVaultById } from "@/api/vaults"
+
+const activePools = ref([])
+const liveLogs = ref([])
 
 const props = defineProps({
 	id: String,
@@ -26,8 +31,6 @@ const breadcrumbs = computed(() => [
 	{ name: vault.value ? vault.value.name : "Loading...", path: `/vaults/${props.id}` },
 ])
 
-
-
 const mockPosition = computed(() => ({
 	tvl: 3.25,
 	returning: 3.37,
@@ -35,11 +38,26 @@ const mockPosition = computed(() => ({
 	symbol: vault.value?.token1?.symbol || "ETH"
 }))
 
+const fetchBackendData = async () => {
+	try {
+		const [poolsRes, logsRes] = await Promise.all([
+			fetch("http://localhost:3001/api/pools"),
+			fetch("http://localhost:3001/api/logs")
+		])
+		activePools.value = await poolsRes.json()
+		liveLogs.value = await logsRes.json()
+	} catch (error) {
+		console.error("Failed to fetch backend data:", error)
+	}
+}
+
 onMounted(async () => {
 	analytics.log("onPage", { name: "VaultDetail", id: props.id })
 	try {
+		await new Promise(r => setTimeout(r, 5000)) // Artificial delay
 		const data = await fetchVaultById(props.id)
 		vault.value = data
+		await fetchBackendData()
 	} catch (error) {
 		console.error("Failed to fetch vault details:", error)
 	} finally {
@@ -52,10 +70,7 @@ onMounted(async () => {
 	<div :class="$style.wrapper">
 		<Breadcrumbs :crumbs="breadcrumbs" :class="$style.breadcrumbs" />
 
-		<div v-if="isLoading" :class="$style.loading">
-			<Icon name="loading" size="48" color="brand" />
-			<Text size="16" weight="600" color="secondary">Loading Vault Data...</Text>
-		</div>
+		<VaultBaseLoading v-if="isLoading" />
 
 		<Flex v-else-if="vault" direction="column" gap="32">
 			<!-- Header -->
@@ -107,20 +122,7 @@ onMounted(async () => {
 								<VaultChart :vault="vault" />
 
 								<!-- Active Pools -->
-								<div :class="$style.card">
-									<Text size="14" weight="600" color="primary" :class="$style.card_title">Active DEX Pools</Text>
-									<Flex direction="column" gap="16">
-										<div v-for="poolName in ['V3Swap', 'EtherlinkDex', 'OmniPool']" :key="poolName" :class="$style.pool_item">
-											<Flex justify="between" align="center">
-												<Flex align="center" gap="12">
-													<div :class="$style.pool_icon" />
-													<Text size="14" weight="600" color="secondary">{{ poolName }}</Text>
-												</Flex>
-												<Text size="14" weight="600" color="green">33% Allocation</Text>
-											</Flex>
-										</div>
-									</Flex>
-								</div>
+								<VaultActivePools :pools="activePools" />
 
 								<!-- Live Logs -->
 								<div :class="$style.card">
@@ -129,9 +131,9 @@ onMounted(async () => {
 										<Badge color="blue" size="small">Streaming</Badge>
 									</Flex>
 									<div :class="$style.logs">
-										<div v-for="i in 5" :key="i" :class="$style.log_line">
-											<span :class="$style.log_time">[{{ 14 + i }}:32:0{{i}}]</span>
-											<span :class="$style.log_msg">Arbitrage opportunity detected. Executing swap...</span>
+										<div v-for="(log, i) in liveLogs" :key="i" :class="$style.log_line">
+											<span :class="$style.log_time">{{ log.time }}</span>
+											<span :class="$style.log_msg">{{ log.msg }}</span>
 										</div>
 									</div>
 								</div>
@@ -218,7 +220,7 @@ onMounted(async () => {
 
 .card {
 	padding: 24px;
-	background: var(--surface-01);
+	background: var(--card-bg);
 	border: 1px solid var(--border);
 	border-radius: 12px;
 }
@@ -329,6 +331,10 @@ onMounted(async () => {
 
 .history_tab.active {
 	color: var(--text-primary);
+}
+
+.history_tab:active {
+	transform: translateY(1px);
 }
 
 .history_tab.active::after {

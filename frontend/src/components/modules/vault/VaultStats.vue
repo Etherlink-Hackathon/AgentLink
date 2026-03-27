@@ -32,7 +32,7 @@ const props = defineProps({
 .wrapper {
 	display: flex;
 	align-items: center;
-	background: var(--surface-01);
+	background: var(--card-bg);
 	border: 1px solid var(--border);
 	border-radius: 12px;
 	padding: 24px;
@@ -58,6 +58,7 @@ const props = defineProps({
 
 @media (max-width: 900px) {
 	.wrapper {
+		background: var(--card-bg);
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 24px;

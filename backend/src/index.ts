@@ -8,6 +8,7 @@
 import { loadConfig } from "./config.js";
 import { createLogger, setLogger, logger } from "./logger.js";
 import { runArbitrageCycle } from "./agent.js";
+import { startServer } from "./api.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -15,6 +16,8 @@ async function main(): Promise<void> {
   // Initialize logger with configured level
   const appLogger = createLogger(config.logLevel);
   setLogger(appLogger);
+
+  startServer();
 
   logger.info("╔══════════════════════════════════════════════╗");
   logger.info("║  Etherlink Omni-DEX Arbitrage Agent          ║");

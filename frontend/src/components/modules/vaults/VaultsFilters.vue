@@ -1,5 +1,10 @@
 <script setup>
-import { ref, reactive, computed, watch } from "vue"
+import { reactive, ref, watch, computed } from "vue"
+
+/**
+ * Modals
+ */
+import FindParticipantModal from "@local/modals/FindParticipantModal.vue"
 
 /**
  * UI
@@ -8,105 +13,155 @@ import Button from "@ui/Button.vue"
 import Toggle from "@ui/Toggle.vue"
 
 /**
+ * Store
+ */
+import { useAccountStore } from "@store/account"
+
+/**
  * Services
  */
-import { getCurrencyIcon } from "@utils/misc"
-import { useAccountStore } from "@store/account"
 import { analytics } from "@sdk"
+import { getCurrencyIcon } from "@utils/misc"
 
 const props = defineProps({
 	filters: { type: Object },
+	liquidityFilters: { type: Object },
 	vaults: { type: Array },
 	filteredCount: { type: Number },
 })
+const emit = defineEmits([
+	"onReset",
+	"onNewMin",
+	"onManageParticipant",
+	"onNewMax",
+	"onSelect",
+])
 
-const emit = defineEmits(["onSelect", "onReset", "onUpdateAdvanced"])
-
-const accountStore = useAccountStore()
 const selectedTab = ref("Basic")
 
-/** Range Picker State */
-const range = reactive({
-	min: 0,
-	max: 100000,
-})
+const accountStore = useAccountStore()
+
+/** modals */
+const showFindParticipantModal = ref(false)
 
 const position = reactive({
 	left: 0,
 	right: 0,
 })
 
+const inputs = reactive({
+	min: 0,
+	max: 50000,
+})
+
 const minInputEl = ref(null)
 const maxInputEl = ref(null)
 
-const advancedFiltersCount = computed(() => {
-	let count = 0
-	if (props.filters.advanced.period) count += 1
-	if (props.filters.advanced.participants.length) count += 1
-  if (props.filters.strategies.some(s => s.active)) count += 1
-	return count
-})
-
 const handleReset = () => {
 	analytics.log("onResetFilters")
-	range.min = 0
-	range.max = 100000
+
+	inputs.min = 0
+	inputs.max = 50000
+
 	emit("onReset")
 }
 
-const handleSelect = (category, item) => {
-	emit("onSelect", category, item)
+const advancedFiltersCount = computed(() => {
+	let count = 0
+
+	if (props.filters.advanced.liquidity.min !== 0 || props.filters.advanced.liquidity.max !== 100000) {
+		count += 1
+	}
+
+	if (props.filters.advanced.period) {
+		count += 1
+	}
+
+	if (props.filters.advanced.participants.length) {
+		count += 1
+	}
+
+	return count
+})
+
+/** advanced filters (participants) */
+const manageParticipant = (address, action) => {
+	emit("onManageParticipant", { address, action })
 }
 
-/** Range Selection logic */
+const handleFindParticipant = (address) => {
+	manageParticipant(address, "add")
+
+	showFindParticipantModal.value = false
+}
+
 watch(
-	() => range.min,
-	(val) => {
-		const left = (val * 100) / 100000
+	() => inputs.min,
+	() => {
+		emit("onNewMin", inputs.min)
+
+		if (inputs.min === 0) {
+			position.left = 0
+			return
+		}
+
+		const left = (inputs.min * 100) / 50000
+
 		position.left = left > 0 ? left : 0
-    emit("onUpdateAdvanced", { liquidity: { ...range } })
 	},
 )
 
 watch(
-	() => range.max,
-	(val) => {
-		const right = ((100000 - val) * 100) / 100000
+	() => inputs.max,
+	() => {
+		emit("onNewMax", inputs.max)
+
+		if (inputs.max === 50000) {
+			position.right = 0
+			return
+		}
+
+		const right = ((50000 - inputs.max) * 100) / 50000
+
 		position.right = right > 0 ? right : 0
-    emit("onUpdateAdvanced", { liquidity: { ...range } })
 	},
 )
 
 const handleBlur = (target) => {
-	if (target === "min") {
-		if (range.min < 0) range.min = 0
+	if (target == "min") {
+		if (inputs.min < 0) {
+			inputs.min = 0
+		}
 	}
-	if (target === "max") {
-		if (range.max > 100000) range.max = 100000
+
+	if (target == "max") {
+		if (inputs.max > 50000) {
+			inputs.max = 50000
+		}
 	}
-	if (range.min > range.max) range.min = range.max
+
+	if (inputs.min > 50000) {
+		inputs.min = 0
+	}
+
+	if (inputs.max < 0) {
+		inputs.max = 50000
+	}
 }
 
 const handleKeydown = (e) => {
 	if (e.key === "-" || e.key === "e") e.preventDefault()
 }
-
-/** Participants Management */
-const manageParticipant = (address, action) => {
-  const participants = [...props.filters.advanced.participants]
-  if (action === 'add' && !participants.includes(address)) {
-    participants.push(address)
-  } else if (action === 'remove') {
-    const index = participants.indexOf(address)
-    if (index > -1) participants.splice(index, 1)
-  }
-  emit("onUpdateAdvanced", { participants })
-}
-
 </script>
 
 <template>
 	<div :class="$style.wrapper">
+		<FindParticipantModal
+			:show="showFindParticipantModal"
+			@onAdd="handleFindParticipant"
+			@onClose="showFindParticipantModal = false"
+		/>
+
 		<div :class="$style.title">Filters</div>
 
 		<div :class="$style.switcher">
@@ -118,37 +173,53 @@ const manageParticipant = (address, action) => {
 			</div>
 			<div
 				@click="selectedTab = 'Advanced'"
-				:class="[$style.tab, selectedTab == 'Advanced' && $style.active]"
+				:class="[
+					$style.tab,
+					selectedTab == 'Advanced' && $style.active,
+				]"
 			>
 				Advanced
-				<div v-if="advancedFiltersCount" :class="$style.dot" />
+				<div v-if="advancedFiltersCount" />
 			</div>
 		</div>
 
 		<template v-if="selectedTab == 'Basic'">
 			<div :class="$style.block">
 				<div :class="$style.subtitle">Symbol</div>
+
 				<div :class="$style.badges">
 					<div
-						v-for="symbol in filters.symbols"
-						:key="symbol.name"
-						@click="handleSelect('symbols', symbol)"
-						:class="[$style.badge, symbol.active && $style.active]"
+						v-for="(symbol, index) in filters.symbols"
+						:key="index"
+						@click="$emit('onSelect', 'symbols', symbol)"
+						:class="[
+							$style.badge,
+							$style.symbol,
+							symbol.active && $style.active,
+						]"
 					>
-						<img :src="getCurrencyIcon(symbol.name)" alt="symbol" />
-						{{ symbol.name }}
+						<img
+							:src="getCurrencyIcon(symbol.name.split('-')[0])"
+							alt="symbol"
+						/>
+						{{ symbol.name.replace("-USD", "") }}
 					</div>
 				</div>
 			</div>
 
 			<div :class="$style.block">
 				<div :class="$style.subtitle">Status</div>
+
 				<div :class="$style.badges">
 					<div
-						v-for="status in filters.statuses"
-						:key="status.name"
-						@click="handleSelect('statuses', status)"
-						:class="[$style.badge, status.active && $style.active, $style[status.color]]"
+						v-for="(status, index) in filters.statuses"
+						:key="index"
+						@click="$emit('onSelect', 'statuses', status)"
+						:class="[
+							$style.badge,
+							$style[status.color],
+							status.active && $style.active,
+						]"
 					>
 						<Icon :name="status.icon" size="14" />
 						{{ status.name }}
@@ -157,23 +228,25 @@ const manageParticipant = (address, action) => {
 			</div>
 
 			<div :class="$style.block">
-				<div :class="$style.subtitle">Strategies</div>
+				<div :class="$style.subtitle">Period</div>
+
 				<div :class="$style.badges">
 					<div
-						v-for="strategy in filters.strategies"
-						:key="strategy.name"
-						@click="handleSelect('strategies', strategy)"
-						:class="[$style.badge, strategy.active && $style.active]"
+						v-for="(period, index) in filters.periods"
+						:key="index"
+						@click="$emit('onSelect', 'periods', period)"
+						:class="[$style.badge, period.active && $style.active]"
 					>
-						{{ strategy.name }}
+						<Icon name="time" size="14" />
+						{{ period.name }}
 					</div>
 				</div>
 			</div>
 		</template>
-
 		<template v-else>
 			<div :class="$style.block">
-				<div :class="$style.subtitle">Liquidity Filter (ETH)</div>
+				<div :class="$style.subtitle">Liquidity</div>
+
 				<div :class="$style.range_picker">
 					<div :class="$style.range">
 						<div
@@ -186,38 +259,59 @@ const manageParticipant = (address, action) => {
 					</div>
 
 					<div :class="$style.range_inputs">
-						<div @click="minInputEl.focus()" :class="$style.range_input">
+						<div
+							@click="minInputEl.focus()"
+							:class="$style.range_input"
+						>
 							<Icon name="download" size="12" />
 							<input
 								ref="minInputEl"
-								v-model="range.min"
+								v-model="inputs.min"
 								type="number"
-								step="1"
+								step="200"
 								@keydown="handleKeydown"
 								@blur="handleBlur('min')"
 								placeholder="0"
 							/>
+							<span>ꜩ</span>
 						</div>
-						<div @click="maxInputEl.focus()" :class="$style.range_input">
+
+						<div
+							@click="maxInputEl.focus()"
+							:class="$style.range_input"
+						>
+							<span>ꜩ</span>
 							<input
 								ref="maxInputEl"
-								v-model="range.max"
+								v-model="inputs.max"
 								type="number"
-								step="1"
+								step="200"
 								@keydown="handleKeydown"
 								@blur="handleBlur('max')"
-								placeholder="100k"
-                :class="$style.right"
+								placeholder="0"
+								:class="$style.right"
 							/>
-							<Icon name="download" size="12" :class="$style.reverse" />
+							<Icon
+								name="download"
+								size="12"
+								:class="$style.reverse"
+							/>
 						</div>
 					</div>
 				</div>
 			</div>
 
 			<div :class="$style.block">
-				<div :class="$style.subtitle">Track Participants</div>
+				<div :class="$style.subtitle">Participants</div>
+
 				<div :class="$style.badges">
+					<div
+						@click="showFindParticipantModal = true"
+						:class="[$style.badge, $style.active]"
+					>
+						<Icon name="plus" size="14" /> Add user
+					</div>
+
 					<div
 						v-if="accountStore.isLoggined"
 						@click="manageParticipant(accountStore.pkh, 'add')"
@@ -228,9 +322,12 @@ const manageParticipant = (address, action) => {
 							:class="$style.avatar"
 							alt="avatar"
 						/>
-						Include Me
+						Find Me
 					</div>
-          <div
+				</div>
+
+				<div :class="$style.badges">
+					<div
 						v-for="participant in filters.advanced.participants"
 						:key="participant"
 						@click="manageParticipant(participant, 'remove')"
@@ -241,30 +338,81 @@ const manageParticipant = (address, action) => {
 							:class="$style.avatar"
 							alt="avatar"
 						/>
-						{{ participant.slice(0, 6) }}..
+						{{ participant.slice(0, 5) }}..{{
+							participant.slice(
+								participant.length - 4,
+								participant.length,
+							)
+						}}
 					</div>
 				</div>
 			</div>
 
 			<div :class="$style.block">
-				<div :class="$style.subtitle">Creation Period</div>
+				<div :class="$style.subtitle">Period</div>
+
 				<div :class="$style.period">
 					<input
 						v-model="filters.advanced.period"
 						type="date"
-						:class="$style.date_input"
+						id="filter_day"
+						name="filter_day"
 					/>
 				</div>
 			</div>
 
-      <div :class="$style.block">
-				<div :class="$style.subtitle">DEX Protocols</div>
+			<div :class="$style.block">
+				<div :class="$style.subtitle">Created by</div>
+
 				<div :class="$style.badges">
 					<div
-						v-for="dex in filters.dexs"
-						:key="dex.name"
-						@click="handleSelect('dexs', dex)"
-						:class="[$style.badge, dex.active && $style.active]"
+						v-for="(author, index) in filters.author"
+						:key="index"
+						@click="$emit('onSelect', 'author', author)"
+						:class="[$style.badge, author.active && $style.active]"
+					>
+						<Icon
+							:name="author.icon"
+							size="14"
+							:class="
+								author.name === 'Juster' && $style.brand_color
+							"
+						/>
+						{{ author.name }}
+					</div>
+				</div>
+			</div>
+
+			<div :class="$style.block">
+				<div :class="$style.subtitle">Strategies</div>
+
+				<div :class="$style.badges">
+					<div
+						v-for="(strategy, index) in filters.strategies"
+						:key="index"
+						@click="$emit('onSelect', 'strategies', strategy)"
+						:class="[
+							$style.badge,
+							strategy.active && $style.active,
+						]"
+					>
+						{{ strategy.name }}
+					</div>
+				</div>
+			</div>
+
+			<div :class="$style.block">
+				<div :class="$style.subtitle">DEX Protocols</div>
+
+				<div :class="$style.badges">
+					<div
+						v-for="(dex, index) in filters.dexs"
+						:key="index"
+						@click="$emit('onSelect', 'dexs', dex)"
+						:class="[
+							$style.badge,
+							dex.active && $style.active,
+						]"
 					>
 						{{ dex.name }}
 					</div>
@@ -275,20 +423,28 @@ const manageParticipant = (address, action) => {
 		<div :class="$style.divider" />
 
 		<div :class="$style.actions">
-			<Button @click="handleReset" type="secondary" size="small" block>Reset Filters</Button>
+			<Button @click="handleReset" type="secondary" size="small"
+				>Reset filters</Button
+			>
 
 			<div :class="$style.counters">
 				<div :class="$style.counter">
 					<div :class="$style.counter__left">
 						<Icon name="collection" size="16" /> Total:
 					</div>
-					<div :class="$style.counter__value">{{ vaults.length }}</div>
+
+					<div :class="$style.counter__value">
+						{{ vaults.length }}
+					</div>
 				</div>
 				<div :class="$style.counter">
 					<div :class="$style.counter__left">
 						<Icon name="filter" size="16" /> Filtered:
 					</div>
-					<div :class="$style.counter__value">{{ filteredCount }}</div>
+
+					<div :class="$style.counter__value">
+						{{ filteredCount }}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -299,76 +455,186 @@ const manageParticipant = (address, action) => {
 .wrapper {
 	position: sticky;
 	top: 100px;
+	height: fit-content;
+
 	background: var(--card-bg);
-	border-radius: 12px;
+	border-radius: 8px;
 	border-top: 3px solid var(--border);
-	padding: 24px 0 16px 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+
+	padding: 20px 0 12px 0;
 }
 
-.title {
-	font-size: 15px;
-	font-weight: 700;
-	color: var(--text-primary);
-	padding: 0 20px;
-	margin-bottom: 24px;
+@media (max-width: 700px) {
+	.wrapper {
+		position: initial;
+
+		width: 100%;
+	}
 }
 
 .switcher {
 	display: flex;
+
 	margin: 0 20px 24px 20px;
-	border-radius: 8px;
-	background: var(--btn-secondary-bg);
-	padding: 4px;
+
+	border-radius: 6px;
+	box-shadow: 0 0 0 2px var(--border);
 }
 
 .tab {
-	flex: 1;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-  gap: 8px;
-	height: 32px;
+	gap: 8px;
+
+	width: 100%;
+	height: 28px;
 	cursor: pointer;
+
 	font-size: 13px;
+	line-height: 1;
 	font-weight: 600;
-	color: var(--text-secondary);
-	border-radius: 6px;
-	transition: all 0.2s;
-  position: relative;
+	color: var(--text-primary);
+
+	opacity: 0.7;
+
+	transition: all 0.2s ease;
+}
+
+.tab div {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--blue);
+}
+
+.tab:nth-child(1) {
+	border-radius: 6px 0 0 6px;
+}
+
+.tab:nth-child(2) {
+	border-radius: 0 6px 6px 0;
 }
 
 .tab.active {
-	background: var(--card-bg);
-	color: var(--text-primary);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+	background: var(--opacity-05);
+	opacity: 1;
 }
 
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--brand);
+.tab:active {
+	transform: translateY(1px);
+}
+
+.title {
+	font-size: 14px;
+	line-height: 1;
+	font-weight: 600;
+	color: var(--text-primary);
+
+	padding: 0 20px;
+	margin-bottom: 24px;
 }
 
 .block {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+
 	padding: 0 20px;
 	margin-bottom: 32px;
 }
 
-.subtitle {
-	font-size: 12px;
-	font-weight: 700;
+/* Counter: Total & Filtered */
+.counters {
+	display: flex;
+	justify-content: space-between;
+	gap: 6px;
+
+	margin-top: 16px;
+}
+
+.counter {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+
+	height: 32px;
+	border-radius: 6px;
+}
+
+.counter svg {
+	fill: var(--text-tertiary);
+}
+
+.counter__left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+
+	font-size: 13px;
+	line-height: 1.1;
+	font-weight: 600;
 	color: var(--text-tertiary);
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
+}
+
+.counter__value {
+	font-size: 13px;
+	line-height: 1.1;
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+.subtitle {
+	display: flex;
+	align-items: center;
+
+	font-size: 12px;
+	line-height: 1;
+	font-weight: 600;
+	color: var(--text-tertiary);
+	fill: var(--text-tertiary);
+}
+
+.subtitle svg {
+	margin-left: 4px;
+}
+
+.hint {
+	font-size: 12px;
+	line-height: 1.6;
+	font-weight: 500;
+	color: var(--text-tertiary);
+
+	padding: 0 20px;
+	margin-bottom: 12px;
+}
+
+.divider {
+	width: 100%;
+	height: 1px;
+	background: var(--border);
+
+	margin: 20px 0 16px;
+}
+
+.actions {
+	display: flex;
+	justify-content: space-between;
+	flex-direction: column;
+
+	padding: 0 20px;
+}
+
+.symbols {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
 .badges {
 	display: flex;
+	align-items: center;
 	flex-wrap: wrap;
 	gap: 8px;
 }
@@ -377,40 +643,66 @@ const manageParticipant = (address, action) => {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+
 	height: 32px;
 	border: 2px solid var(--border);
 	padding: 0 12px;
 	border-radius: 50px;
 	cursor: pointer;
-	font-size: 13px;
+	opacity: 0.5;
+
+	font-size: 14px;
+	line-height: 1;
 	font-weight: 600;
-	color: var(--text-secondary);
-	transition: all 0.2s;
-  background: transparent;
+	color: var(--text-primary);
+	fill: var(--text-tertiary);
+
+	transition: all 0.2s ease;
 }
 
 .badge:hover {
-	border-color: var(--border-highlight);
+	border: 2px solid var(--border-highlight);
 }
 
 .badge.active {
-	border-color: var(--brand);
-	color: var(--text-primary);
-	background: rgba(167, 139, 250, 0.05);
-  opacity: 1;
+	opacity: 1;
+	border: 2px solid var(--border-highlight);
 }
 
-.badge img {
-	width: 16px;
-	height: 16px;
+.badge.yellow svg {
+	fill: var(--yellow);
+}
+
+.badge.purple svg {
+	fill: var(--purple);
+}
+
+.badge.green svg {
+	fill: var(--green);
+}
+
+.badge.red svg {
+	fill: var(--red);
+}
+
+.badge.orange svg {
+	fill: var(--orange);
+}
+
+.badge.gray svg {
+	fill: var(--text-secondary);
+}
+
+.brand_color {
+	fill: var(--brand);
+}
+
+.symbol img {
+	width: 14px;
+	height: 14px;
 	border-radius: 50%;
 }
 
-.avatar {
-  border-radius: 50%;
-}
-
-/* Range Picker */
 .range_picker {
 	display: flex;
 	flex-direction: column;
@@ -419,103 +711,129 @@ const manageParticipant = (address, action) => {
 
 .range {
 	position: relative;
+
 	width: 100%;
 	height: 4px;
-	background: var(--border);
-	border-radius: 2px;
+	border-radius: 50px;
+	background: var(--opacity-10);
 }
 
 .filled_range {
 	position: absolute;
+
 	height: 100%;
-	background: var(--brand);
-	border-radius: 2px;
+	background: var(--blue);
+	border-radius: 50px;
+
+	transition: all 0.2s ease;
 }
 
 .range_inputs {
 	display: flex;
+	align-items: center;
 	justify-content: space-between;
 }
 
 .range_input {
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	background: var(--btn-secondary-bg);
-	border: 1px solid var(--border);
+
+	cursor: text;
+
+	height: 28px;
 	border-radius: 6px;
-	padding: 4px 8px;
-	font-size: 13px;
+	border: 1px solid var(--border);
+	padding: 0 8px;
+
+	transition: border 0.2s ease;
+}
+
+.range_input svg {
+	fill: var(--text-tertiary);
+
+	margin: 0 8px 0 0;
+}
+
+.range_input svg.reverse {
+	fill: var(--text-tertiary);
+
+	margin: 0 0 0 8px;
+
+	transform: rotate(180deg);
 }
 
 .range_input input {
-	width: 50px;
-	background: transparent;
-	border: none;
-	color: var(--text-primary);
-	font-weight: 600;
+	width: 60px;
+
 	font-size: 13px;
+	line-height: 1.1;
+	font-weight: 600;
+	color: var(--text-primary);
+
+	margin: 0 4px 0 0;
 }
 
 .range_input input.right {
-  text-align: right;
+	text-align: right;
+
+	margin: 0 0 0 4px;
 }
 
-.reverse {
-  transform: rotate(180deg);
-}
-
-/* Date Input */
-.date_input {
-  background: var(--btn-secondary-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 12px;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  width: 100%;
-}
-
-/* Status colors */
-.badge.purple.active { border-color: var(--purple); background: rgba(161, 131, 246, 0.1); }
-.badge.yellow.active { border-color: var(--yellow); background: rgba(245, 158, 11, 0.1); }
-.badge.green.active { border-color: var(--green); background: rgba(16, 185, 129, 0.1); }
-
-.divider {
-	height: 1px;
-	background: var(--border);
-	margin: 20px 20px 24px;
-}
-
-.actions {
-	padding: 0 20px;
-}
-
-.counters {
-	display: flex;
-	justify-content: space-between;
-	margin-top: 20px;
-}
-
-.counter {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.counter__left {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 12px;
-	font-weight: 600;
+.range_input {
+	font-size: 11px;
+	line-height: 1.1;
+	font-weight: 500;
 	color: var(--text-tertiary);
 }
 
-.counter__value {
-	font-size: 13px;
-	font-weight: 700;
+.range_input input::-webkit-outer-spin-button,
+.range_input input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+.misc {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+.toggle_filter {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.left {
+	font-size: 14px;
+	line-height: 1;
+	font-weight: 600;
 	color: var(--text-primary);
+}
+
+.period {
+	display: flex;
+}
+
+.period input {
+	height: 32px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+
+	font-size: 13px;
+	line-height: 1;
+	font-weight: 500;
+	color: var(--text-primary);
+
+	padding: 0 10px;
+}
+
+.period input::-webkit-calendar-picker-indicator {
+	display: none;
+}
+
+.avatar {
+	width: 14px;
+	height: 14px;
 }
 </style>

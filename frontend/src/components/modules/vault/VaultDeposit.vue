@@ -40,7 +40,7 @@ const handlePreset = (preset) => {
 			<Flex direction="column" gap="12">
 				<Flex justify="between" align="center">
 					<Text size="12" weight="700" color="tertiary" :class="$style.label">AMOUNT</Text>
-					<Text size="12" weight="700" color="tertiary" :class="$style.balance">Balance: 14.50 {{ vault?.token1?.symbol || 'WETH' }}</Text>
+					<Text size="12" weight="700" color="tertiary" :class="$style.balance">Balance: 14.50 {{ vault?.token1?.symbol || 'XTZ' }}</Text>
 				</Flex>
 				<Input
 					v-model="amount"
@@ -65,18 +65,15 @@ const handlePreset = (preset) => {
 				</Flex>
 			</Flex>
 
-			<Flex direction="column" gap="16" :class="$style.info">
-				<Flex justify="between" align="center">
-					<Text size="13" weight="600" color="tertiary">Estimated Monthly Yield</Text>
-					<Text size="13" weight="700" color="green">+$120.50</Text>
-				</Flex>
-				<Flex justify="between" align="center">
-					<Text size="13" weight="600" color="tertiary">Protocol Fee (0.1%)</Text>
-					<Text size="13" weight="700" color="secondary">0.00 {{ vault?.token1?.symbol || 'WETH' }}</Text>
-				</Flex>
-			</Flex>
-
-			<Button type="white" size="large" block :class="$style.confirm_btn">
+			<Button
+					@click="emit('onDeposit', amount)"
+					type="primary"
+					size="medium"
+					keybind="C"
+					@onKeybind="emit('onDeposit', amount)"
+					block
+					style="border-radius: 4px 7px 7px 4px"
+				>
 				{{ activeTab === 'deposit' ? 'Confirm Deposit' : 'Confirm Withdrawal' }}
 			</Button>
 
@@ -93,7 +90,7 @@ const handlePreset = (preset) => {
 <style module>
 .wrapper {
 	padding: 28px;
-	background: var(--surface-01);
+	background: var(--card-bg);
 	border: 1px solid var(--border);
 	border-radius: 12px;
 	height: fit-content;
@@ -124,7 +121,7 @@ const handlePreset = (preset) => {
 }
 
 .tab.active {
-	background: var(--surface-01);
+	background: var(--card-bg);
 	color: var(--text-primary);
 	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }

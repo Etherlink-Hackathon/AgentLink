@@ -2,8 +2,25 @@ export const toClipboard = (value) => {
 	navigator.clipboard.writeText(value)
 }
 
+export const getTokenLogo = (symbol) => {
+	if (!symbol) return null
+	const s = symbol.toLowerCase()
+	if (s.includes("eth")) return new URL(`../../assets/img/weth.png`, import.meta.url).href
+	if (s.includes("usdc")) return new URL(`../../assets/img/usdc.webp`, import.meta.url).href
+	if (s.includes("usdt")) return new URL(`../../assets/img/usdt.png`, import.meta.url).href
+	if (s.includes("wxtz") || s.includes("xtz")) return new URL(`../../assets/img/wxtz.png`, import.meta.url).href
+	if (s.includes("wbtc") || s.includes("bitcoin")) return new URL(`../../assets/img/wbtc.png`, import.meta.url).href
+	if (s.includes("lyzi")) return new URL(`../../assets/img/lyzi.png`, import.meta.url).href
+	if (s.includes("pepe")) return new URL(`../../assets/img/tzpepe.png`, import.meta.url).href
+	if (s.includes("mbasis")) return new URL(`../../assets/img/mbasis.png`, import.meta.url).href
+	if (s.includes("mTBILL")) return new URL(`../../assets/img/mtbill.png`, import.meta.url).href
+	if (s.includes("crv") || s.includes("curve")) return new URL(`../../assets/img/curve.png`, import.meta.url).href
+	return null
+}
+
 export const getCurrencyIcon = (name) => {
-	// Fallback to a generic icon or empty string if symbols-specific assets are gone
+	const logo = getTokenLogo(name)
+	if (logo) return logo
 	try {
 		return new URL(`../../assets/logo.png`, import.meta.url).href
 	} catch (e) {

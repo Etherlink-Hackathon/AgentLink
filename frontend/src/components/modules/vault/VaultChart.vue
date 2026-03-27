@@ -78,7 +78,7 @@ const series = ref([
 <style module>
 .wrapper {
 	padding: 24px;
-	background: var(--surface-01);
+	background: var(--card-bg);
 	border: 1px solid var(--border);
 	border-radius: 12px;
 }
@@ -106,7 +106,7 @@ const series = ref([
 }
 
 .toggle.active {
-	background: var(--surface-01);
+	background: var(--card-bg);
 	color: var(--text-primary);
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
