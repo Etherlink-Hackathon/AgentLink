@@ -1,15 +1,14 @@
-from arbitrage_vault.models import ArbitrageExecution, ArbitrageVault, DexPool, VaultYield
+from arbitrage_vault.models import AgentExecution, Vault, DexPool, VaultYield, Token, Agent
 from dipdup.context import HandlerContext
 from dipdup.models.evm import EvmEvent
 from arbitrage_vault.types.arbitrage_vault.evm_events.arbitrage_executed import ArbitrageExecuted
-
 
 async def on_arbitrage_executed(
     ctx: HandlerContext,
     event: EvmEvent[ArbitrageExecuted],
 ) -> None:
     # 1. Get or create the Vault
-    vault, _ = await ArbitrageVault.get_or_create(
+    vault, _ = await Vault.get_or_create(
         address=event.data.address,
         defaults={
             "name": "Etherlink Arbitrage Vault",
@@ -18,27 +17,50 @@ async def on_arbitrage_executed(
         }
     )
 
-    # 2. Identify DEX Pools
+    # 2. Identify tokens (Generic placeholders)
+    asset_token, _ = await Token.get_or_create(
+        address=vault.asset_address,
+        defaults={"name": "Vault Asset", "symbol": "ASSET", "decimals": 18}
+    )
+    trade_token, _ = await Token.get_or_create(
+        address=event.payload.tokenTrade,
+        defaults={"name": "Trade Token", "symbol": "TRADE", "decimals": 18}
+    )
+
+    # 3. Identify DexPools
     dex_buy, _ = await DexPool.get_or_create(
         address=event.payload.dexBuy,
         defaults={
-            "name": "Buy DEX Router",
-            "pair_name": f"Unknown/{event.payload.tokenTrade[:6]}",
+            "name": f"Buy DEX ({event.payload.dexBuy[:6]})",
+            "token_a": asset_token,
+            "token_b": trade_token,
         }
     )
-
     dex_sell, _ = await DexPool.get_or_create(
         address=event.payload.dexSell,
         defaults={
-            "name": "Sell DEX Router",
-            "pair_name": f"{event.payload.tokenTrade[:6]}/Unknown",
+            "name": f"Sell DEX ({event.payload.dexSell[:6]})",
+            "token_a": trade_token,
+            "token_b": asset_token,
+        }
+    )
+
+    # 4. Map or create the Agent (Soul)
+    # The strategist address comes from the on-chain event
+    agent, _ = await Agent.get_or_create(
+        address=event.payload.strategist,
+        vault=vault,
+        defaults={
+            "name": "Etherlink Soul Agent",
+            "details": {"role": "STRATEGIST"}
         }
     )
 
     profit = event.payload.profit / 10**18
 
-    # 3. Create ArbitrageExecution
-    execution = await ArbitrageExecution.create(
+    # 5. Create AgentExecution
+    execution = await AgentExecution.create(
+        agent=agent,
         vault=vault,
         strategist=event.payload.strategist,
         dex_buy=dex_buy,
@@ -47,14 +69,13 @@ async def on_arbitrage_executed(
         profit=profit,
         timestamp=event.data.timestamp,
         transaction_hash=event.data.transaction_hash,
-        # agent=... # This will be linked by the agent service when it logs the decision
     )
 
-    # 4. Record Yield
+    # 6. Record yield
     await VaultYield.create(
         vault=vault,
         profit=profit,
         timestamp=event.data.timestamp,
         execution=execution,
-        dex_pool=dex_buy, # Linking to buy pool as primary for this execution example
+        dex_pool=dex_buy,
     )

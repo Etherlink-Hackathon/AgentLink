@@ -1,14 +1,13 @@
-from arbitrage_vault.models import UserAction, ArbitrageVault
+from arbitrage_vault.models import UserAction, Vault
 from dipdup.context import HandlerContext
 from dipdup.models.evm import EvmEvent
 from arbitrage_vault.types.arbitrage_vault.evm_events.withdraw import Withdraw
-
 
 async def on_withdraw(
     ctx: HandlerContext,
     event: EvmEvent[Withdraw],
 ) -> None:
-    vault, _ = await ArbitrageVault.get_or_create(
+    vault, _ = await Vault.get_or_create(
         address=event.data.address,
         defaults={
             "name": "Etherlink Arbitrage Vault",
