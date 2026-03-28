@@ -1,0 +1,51 @@
+spec_version: 3.0
+package: arbitrage_vault
+
+database:
+  kind: postgres
+  host: ${POSTGRES_HOST:-localhost}
+  port: ${POSTGRES_PORT:-5432}
+  user: ${POSTGRES_USER:-dipdup}
+  password: ${POSTGRES_PASSWORD:-changeme}
+  database: ${POSTGRES_DB:-dipdup}
+
+contracts:
+  vault:
+    address: ${VAULT_ADDRESS:-0x5555555555555555555555555555555555555555}
+    typename: ArbitrageVault
+
+datasources:
+  evm_node:
+    kind: evm.node
+    url: ${RPC_URL:-https://node.mainnet.etherlink.com}
+
+indexes:
+  vault_events:
+    kind: evm.events
+    datasources:
+      - evm_node
+    handlers:
+      - callback: on_arbitrage_executed
+        contract: vault
+        name: ArbitrageExecuted
+      - callback: on_deposit
+        contract: vault
+        name: Deposit
+      - callback: on_withdraw
+        contract: vault
+        name: Withdraw
+hooks:
+  run_arbitrage:
+    callback: run_arbitrage
+    atomic: false
+    args:
+      vault_address: str
+      min_profit_usd: float
+
+jobs:
+  arbitrage_cycle:
+    hook: run_arbitrage
+    crontab: "* * * * *" # Every minute
+    args:
+      vault_address: ${VAULT_ADDRESS:-0x5555555555555555555555555555555555555555}
+      min_profit_usd: 0.1

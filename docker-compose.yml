@@ -1,0 +1,50 @@
+services:
+  indexer:
+    build: 
+      context: ./backend-indexer
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["run"]
+    restart: always
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_USER=${POSTGRES_USER:-dipdup}
+      - POSTGRES_DB=${POSTGRES_DB:-dipdup}
+      - RPC_URL=${RPC_URL:-https://node.mainnet.etherlink.com}
+      - VAULT_ADDRESS=${VAULT_ADDRESS:-0x5555555555555555555555555555555555555555}
+
+  db:
+    image: postgres:15
+    restart: always
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=dipdup
+      - POSTGRES_DB=dipdup
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dipdup -d dipdup"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - 5432:5432
+
+  hasura:
+    image: hasura/graphql-engine:v2.35.0
+    ports:
+      - 8081:8080
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    environment:
+      - HASURA_GRAPHQL_DATABASE_URL=postgres://dipdup:${POSTGRES_PASSWORD:-changeme}@db:5432/dipdup
+      - HASURA_GRAPHQL_ENABLE_CONSOLE=true
+      - HASURA_GRAPHQL_DEV_MODE=true
+      - HASURA_GRAPHQL_ADMIN_SECRET=${ADMIN_SECRET:-changeme}
+
+volumes:
+  db_data:

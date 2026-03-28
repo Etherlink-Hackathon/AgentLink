@@ -7,7 +7,7 @@ import { useAppStore } from "@store/app"
 import { useAccountStore } from "@store/account"
 
 // Lazy-load routes
-const Explore = () => import('../views/ExplorePage.vue')
+const Explore = () => import('../views/Home.vue')
 const Vaults = () => import('../views/VaultsPage.vue')
 const VaultPage = () => import('../views/VaultPage.vue')
 

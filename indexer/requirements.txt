@@ -1,0 +1,5 @@
+dipdup==8.2.3
+psycopg2-binary
+pydantic
+httpx
+web3

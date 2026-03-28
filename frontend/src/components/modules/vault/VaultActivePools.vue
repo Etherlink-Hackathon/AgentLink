@@ -1,24 +1,66 @@
-<script setup>
+<script>
+import { defineComponent, ref, computed } from "vue"
+
+/**
+ * UI
+ */
+import Pagination from "@ui/Pagination.vue"
+
+/**
+ * Utils
+ */
 import { getTokenLogo } from "@utils/misc"
 
-const props = defineProps({
-	pools: {
-		type: Array,
-		default: () => []
-	}
+export default defineComponent({
+	name: "VaultActivePools",
+
+	props: {
+		pools: {
+			type: Array,
+			default: () => [],
+		},
+	},
+
+	setup(props) {
+		const currentPage = ref(1)
+		const itemsPerPage = 5
+
+		const paginatedPools = computed(() => {
+			const start = (currentPage.value - 1) * itemsPerPage
+			const end = start + itemsPerPage
+			return props.pools.slice(start, end)
+		})
+
+		const getDexLogo = (dex) => {
+			const name = dex.toLowerCase().replace(/[\s-]/g, "")
+			if (name.includes("curve"))
+				return new URL("../../../assets/img/curve.png", import.meta.url)
+					.href
+			if (name.includes("oku"))
+				return new URL("../../../assets/img/oku.svg", import.meta.url)
+					.href
+			return null
+		}
+
+		const getPairTokens = (vault) => {
+			if (!vault) return []
+			return vault.split("/")
+		}
+
+		return {
+			currentPage,
+			itemsPerPage,
+			paginatedPools,
+			getDexLogo,
+			getPairTokens,
+			getTokenLogo,
+		}
+	},
+
+	components: {
+		Pagination,
+	},
 })
-
-const getDexLogo = (dex) => {
-	const name = dex.toLowerCase().replace(/[\s-]/g, '')
-	if (name.includes('curve')) return new URL('../../../assets/img/curve.png', import.meta.url).href
-	if (name.includes('oku')) return new URL('../../../assets/img/oku.svg', import.meta.url).href
-	return null
-}
-
-const getPairTokens = (vault) => {
-	if (!vault) return []
-	return vault.split('/')
-}
 </script>
 
 <template>
@@ -36,7 +78,7 @@ const getPairTokens = (vault) => {
 					</tr>
 				</thead>
 				<tbody>
-					<tr v-for="(pool, index) in pools" :key="index">
+					<tr v-for="(pool, index) in paginatedPools" :key="index">
 						<td>
 							<Flex align="center" gap="10">
 								<div :class="$style.pool_icon_wrapper">
@@ -71,6 +113,14 @@ const getPairTokens = (vault) => {
 				</tbody>
 			</table>
 		</div>
+
+		<Pagination
+			v-if="pools.length > itemsPerPage"
+			v-model="currentPage"
+			:total="pools.length"
+			:limit="itemsPerPage"
+			:class="$style.pagination"
+		/>
 	</div>
 </template>
 
@@ -167,5 +217,11 @@ const getPairTokens = (vault) => {
 
 .align_right {
 	text-align: right;
+}
+
+.pagination {
+	margin-top: 24px;
+	display: flex;
+	justify-content: center;
 }
 </style>

@@ -2,6 +2,7 @@
 import { ref, computed } from "vue"
 import Badge from "@ui/Badge.vue"
 import Button from "@ui/Button.vue"
+import Pagination from "@ui/Pagination.vue"
 
 const props = defineProps({
 	history: {
@@ -80,28 +81,12 @@ const getExplorerUrl = (hash) => `https://explorer.etherlink.com/tx/${hash}`
 		</div>
 
 		<!-- Pagination -->
-		<Flex v-if="totalPages > 1" justify="between" align="center" :class="$style.pagination">
-			<Text size="12" weight="600" color="tertiary">
-				Showing {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, history.length) }} of {{ history.length }}
-			</Text>
-			<Flex gap="8">
-				<Button 
-					type="secondary" 
-					size="mini" 
-					:disabled="currentPage === 1"
-					@click="currentPage--"
-				>
-					<Icon name="arrow" size="12" style="transform: rotate(90deg)" />
-				</Button>
-				<Button 
-					type="secondary" 
-					size="mini" 
-					:disabled="currentPage === totalPages"
-					@click="currentPage++"
-				>
-					<Icon name="arrow" size="12" style="transform: rotate(-90deg)" />
-				</Button>
-			</Flex>
+		<Flex v-if="totalPages > 1" justify="center" align="center" :class="$style.pagination">
+			<Pagination
+				v-model="currentPage"
+				:total="history.length"
+				:limit="itemsPerPage"
+			/>
 		</Flex>
 	</div>
 </template>

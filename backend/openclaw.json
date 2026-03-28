@@ -1,12 +1,15 @@
 {
-  // OpenClaw Agent Configuration for Etherlink Omni-DEX Arbitrage Agent
   "agent": {
     "name": "Etherlink Arbitrage Agent",
     "description": "Autonomous DeFi arbitrage agent for Etherlink Mainnet",
     "instructions": "./AGENT.md"
   },
-
-  // MCP Server Connections
+  "tools": {
+    "get_market_opportunities": {
+      "command": "python ./backend-indexer/scripts/get_opportunities.py",
+      "description": "Fetch validated arbitrage opportunities from the DipDup indexer"
+    }
+  },
   "mcpServers": {
     "etherlink": {
       "command": "npx",

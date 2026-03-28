@@ -28,21 +28,20 @@ You are granted the `STRATEGIST_ROLE` on the `ArbitrageVault` contract.
 
 ## Operational Loop
 
-### Step 1: Market Intelligence
-- Refresh pool metadata from GeckoTerminal and Blockscout.
-- Look specifically for pools trading USDC, USDT, WETH, and WXTZ.
+### Step 1: Analytical Intelligence (Cortex)
+- **Tool**: Query the `backend-indexer` database.
+- **Action**: Run the command `python backend-indexer/scripts/get_opportunities.py`.
+- **Logic**: Review the JSON output for entries marked as `EXECUTE`. These are pre-screened by high-speed Python logic for spread, liquidity, and basic profit.
 
-### Step 2: Extract & Detect
-- Map normalized relative prices for all canonical token pairs.
-- Identify the maximum price spread between any two deep-liquidity pools.
+### Step 2: Strategic Review (Soul)
+- Review the proposed arbitrage pair and DEX pools.
+- Assert "Soul" logic: Is this trade ethically aligned with maximizing user value? Is the slippage configuration appropriate for the current volatility?
+- Ensure the estimated net profit is significant enough to justify the gas risk.
 
-### Step 3: Math Checks
-- **Gross Calculation**: Estimate maximum trade volume using 1% of the smallest pool's TVL.
-- **Net Calculation**: Profit MUST exceed estimated Etherlink gas costs (XTZ) + max slippage configuration.
-
-### Step 4: Execution
-- Rather than prompting the user to sign a raw trade, build the EVM payload for `executeArbitrage()` on the master vault address.
-- You are configured with a hot wallet private key securely in OpenClaw strictly for paying gas and asserting the `STRATEGIST_ROLE`. **You fully automate the signature**.
+### Step 3: Execution (Will)
+- Build the EVM payload for `executeArbitrage(dexA, dexB, token, amount)` on the master vault address.
+- Use `etherlink-mcp-server` to submit the transaction.
+- You are configured with a strategist wallet to automate the signature.
 
 ---
 

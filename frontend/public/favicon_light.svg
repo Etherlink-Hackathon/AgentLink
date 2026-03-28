@@ -1,13 +1,1 @@
-<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_2002_21)">
-<path d="M20 20V80H30L50 20L70 80H80V20" stroke="black" stroke-width="10" stroke-linejoin="round"/>
-<path d="M37.2781 69L27.3349 32.6364H31.8093L39.4087 62.2528H39.7638L47.5053 32.6364H52.4769L60.2184 62.2528H60.5735L68.1729 32.6364H72.6474L62.7042 69H58.1587L50.1332 40.0227H49.8491L41.8235 69H37.2781Z" fill="black"/>
-<path d="M20 20V80H30L50 20L70 80H80V20" stroke="black" stroke-width="10" stroke-linejoin="round"/>
-<path d="M37.2781 69L27.3349 32.6364H31.8093L39.4087 62.2528H39.7638L47.5053 32.6364H52.4769L60.2184 62.2528H60.5735L68.1729 32.6364H72.6474L62.7042 69H58.1587L50.1332 40.0227H49.8491L41.8235 69H37.2781Z" fill="black"/>
-</g>
-<defs>
-<clipPath id="clip0_2002_21">
-<rect width="100" height="100" fill="white"/>
-</clipPath>
-</defs>
-</svg>
+<svg id="agentlink-light" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full" style="filter: none;"><path d="M 15 20 L 15 85 L 40 85 L 65 15 L 90 85" stroke="#0F172A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M 52.5 50 L 77.5 50" stroke="#2563EB" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15" cy="20" r="5" fill="#2563EB"/></svg>
