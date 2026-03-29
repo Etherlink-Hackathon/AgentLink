@@ -4,7 +4,11 @@
   "description": "ERC-4626 Vault contracts for the Etherlink Arbitrage Agent",
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
+    "deploy:etherlink": "hardhat run scripts/deploy.ts --network etherlink",
+    "test:flow:local": "hardhat run scripts/test_flow.ts --network localhost",
+    "test:flow:etherlink": "hardhat run scripts/test_flow.ts --network etherlink"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.3",
