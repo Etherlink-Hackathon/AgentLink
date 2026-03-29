@@ -34,6 +34,8 @@ indexes:
       - callback: on_withdraw
         contract: vault
         name: Withdraw
+    on_synchronized:
+      - callback: start_agent_listener # Call the listener task
 hooks:
   run_arbitrage:
     callback: run_arbitrage
@@ -41,6 +43,8 @@ hooks:
     args:
       vault_address: str
       min_profit_usd: float
+  start_agent_listener:
+    callback: agent_execute_listener # Points to hooks/agent_executor.py
 
 jobs:
   arbitrage_cycle:

@@ -4,7 +4,6 @@ from typing import List, Dict, Any, Optional
 logger = logging.getLogger(__name__)
 
 # Configurable constants (fallbacks if dynamic fetching fails)
-DEFAULT_XTZ_PRICE_USD = 1.0
 GAS_PER_SWAP = 150_000
 SWAPS_PER_ARB = 2
 MIN_TVL_THRESHOLD = 1000.0

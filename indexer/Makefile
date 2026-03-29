@@ -1,6 +1,5 @@
-# Etherlink Arbitrage Vault — Global Management
-
-.PHONY: help install run-agent run-indexer clean
+# Etherlink Arbitrage Indexer — Management
+.PHONY: help install run build clean
 
 help: ## Show this help message
 	@echo 'Usage: make [TARGET]'
@@ -8,16 +7,14 @@ help: ## Show this help message
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-install: ## Install dependencies for agent and indexer
-	cd backend && npm install
-	cd backend-indexer && pip install -r requirements.txt
+install: ## Install python dependencies locally
+	pip install -r requirements.txt
 
-run-agent: ## Start the TypeScript arbitrage agent
-	cd backend && npm run dev
+run: ## Start the DipDup indexer and background agent
+	dipdup run
 
-run-indexer: ## Start the DipDup indexer
-	cd backend-indexer && dipdup run
+build: ## Build the docker image
+	docker build -t etherlink-arbitrage-indexer .
 
-clean: ## Clean audit/build artifacts
-	rm -rf backend/dist backend/node_modules
-	rm -rf backend-indexer/__pycache__
+clean: ## Remove temporary files
+	rm -rf __pycache__ .pytest_cache

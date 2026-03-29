@@ -3,3 +3,4 @@ psycopg2-binary
 pydantic
 httpx
 web3
+google-generativeai
