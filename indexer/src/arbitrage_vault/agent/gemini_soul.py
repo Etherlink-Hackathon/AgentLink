@@ -4,6 +4,7 @@ import json
 import asyncio
 from typing import Dict, Any, Optional
 import google.generativeai as genai
+from eth_abi import encode as abi_encode
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,13 @@ OPPORTUNITY DATA:
 
 INVARIANTS:
 - Chain ID: 42793 (Etherlink)
-- Min Profit: $0.10
-- Max Slippage: 0.5%
+- DexType Mapping: UNISWAP_V2:0, UNISWAP_V3:1, CURVE:2, UNIVERSAL_ROUTER:3, CURVE_V2:4
+- Min Profit Floor: $0.10
+- Max Slippage: 0.5% (50 bps)
+
+SECURITY:
+- You MUST define 'min_expected_profit_usd' to prevent sandwich attacks.
+- For UNIVERSAL_ROUTER (3), ensure 'payerIsUser' is false.
 
 SCHEMA:
 {{
@@ -26,7 +32,8 @@ SCHEMA:
   "confidence": 0.0-1.0,
   "params": {{
     "max_gas_gwei": number,
-    "slippage_bps": number
+    "slippage_bps": number,
+    "min_expected_profit_usd": number
   }}
 }}
 """
@@ -71,3 +78,33 @@ class GeminiSoul:
         except Exception as e:
             logger.error(f"Gemini SDK Error: {e}")
             return None
+
+    @staticmethod
+    def encode_universal_router_swap(
+        recipient: str,
+        amount_in: int,
+        amount_out_min: int,
+        path: bytes,
+        payer_is_user: bool = False
+    ) -> str:
+        """
+        Python equivalent of the Universal Router V3_SWAP_EXACT_IN encoder.
+        Used by the AI Strategist to build secure payloads for the ArbitrageVault.
+        """
+        # Command 0x00 = V3_SWAP_EXACT_IN
+        commands = b'\x00'
+        
+        # Input: (address recipient, uint256 amountIn, uint256 amountOutMin, bytes path, bool payerIsUser)
+        input_data = abi_encode(
+            ["address", "uint256", "uint256", "bytes", "bool"],
+            [recipient, amount_in, amount_out_min, path, payer_is_user]
+        )
+        
+        # Final dexData: (bytes commands, bytes[] inputs)
+        # Note: In Python/eth-abi, bytes[] is encoded as [input_data]
+        encoded_payload = abi_encode(
+            ["bytes", "bytes[]"],
+            [commands, [input_data]]
+        )
+        
+        return "0x" + encoded_payload.hex()

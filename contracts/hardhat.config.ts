@@ -25,6 +25,21 @@ const config: HardhatUserConfig = {
       url: "https://node.mainnet.etherlink.com",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
     }
+  },
+  etherscan: {
+    apiKey: {
+      etherlink: "any" // Blockscout doesn't require a real API key
+    },
+    customChains: [
+      {
+        network: "etherlink",
+        chainId: 42793,
+        urls: {
+          apiURL: "https://explorer.etherlink.com/api",
+          browserURL: "https://explorer.etherlink.com"
+        }
+      }
+    ]
   }
 };
 

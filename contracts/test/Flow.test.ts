@@ -24,7 +24,9 @@ describe("ArbitrageVault Flow Tests", function () {
   const DexType = {
     UNISWAP_V2: 0,
     UNISWAP_V3: 1,
-    CURVE: 2
+    CURVE: 2,
+    UNIVERSAL_ROUTER: 3,
+    CURVE_V2: 4
   };
 
   const initialDeposit = ethers.parseUnits("1000", 18);
@@ -84,15 +86,27 @@ describe("ArbitrageVault Flow Tests", function () {
     const amountToTrade = initialDeposit / 2n;
     const v3Data = ethers.AbiCoder.defaultAbiCoder().encode(["uint24", "uint160"], [3000, 0]);
     
-    await vault.connect(strategist).executeArbitrage(
-      await v2Router.getAddress(),
-      DexType.UNISWAP_V2,
-      "0x",
-      await v3Router.getAddress(),
-      DexType.UNISWAP_V3,
-      v3Data,
-      await wxtz.getAddress(),
-      amountToTrade
+    const steps = [
+      {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: "0x"
+      },
+      {
+        dex: await v3Router.getAddress(),
+        dexType: DexType.UNISWAP_V3,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: v3Data
+      }
+    ];
+
+    await vault.connect(strategist).executeMultiHop(
+      steps,
+      amountToTrade,
+      0 // minExpectedProfit
     );
 
     const midAssets = await vault.totalAssets();
@@ -119,15 +133,25 @@ describe("ArbitrageVault Flow Tests", function () {
     
     // Arb 1: V2 -> Curve
     const curveDataSell = ethers.AbiCoder.defaultAbiCoder().encode(["int128", "int128"], [1, 0]);
-    await vault.connect(strategist).executeArbitrage(
-      await v2Router.getAddress(),
-      DexType.UNISWAP_V2,
-      "0x",
-      await curvePool.getAddress(),
-      DexType.CURVE,
-      curveDataSell,
-      await wxtz.getAddress(),
-      amountToTrade
+    await vault.connect(strategist).executeMultiHop(
+      [
+        {
+          dex: await v2Router.getAddress(),
+          dexType: DexType.UNISWAP_V2,
+          tokenIn: await usdc.getAddress(),
+          tokenOut: await wxtz.getAddress(),
+          data: "0x"
+        },
+        {
+          dex: await curvePool.getAddress(),
+          dexType: DexType.CURVE,
+          tokenIn: await wxtz.getAddress(),
+          tokenOut: await usdc.getAddress(),
+          data: curveDataSell
+        }
+      ],
+      amountToTrade,
+      0 // minExpectedProfit
     );
 
     const asset1 = await vault.totalAssets();
@@ -136,15 +160,25 @@ describe("ArbitrageVault Flow Tests", function () {
     // Arb 2: Curve -> V3
     const curveDataBuy = ethers.AbiCoder.defaultAbiCoder().encode(["int128", "int128"], [0, 1]);
     const v3Data = ethers.AbiCoder.defaultAbiCoder().encode(["uint24", "uint160"], [3000, 0]);
-    await vault.connect(strategist).executeArbitrage(
-      await curvePool.getAddress(),
-      DexType.CURVE,
-      curveDataBuy,
-      await v3Router.getAddress(),
-      DexType.UNISWAP_V3,
-      v3Data,
-      await wxtz.getAddress(),
-      amountToTrade
+    await vault.connect(strategist).executeMultiHop(
+      [
+        {
+          dex: await curvePool.getAddress(),
+          dexType: DexType.CURVE,
+          tokenIn: await usdc.getAddress(),
+          tokenOut: await wxtz.getAddress(),
+          data: curveDataBuy
+        },
+        {
+          dex: await v3Router.getAddress(),
+          dexType: DexType.UNISWAP_V3,
+          tokenIn: await wxtz.getAddress(),
+          tokenOut: await usdc.getAddress(),
+          data: v3Data
+        }
+      ],
+      amountToTrade,
+      0 // minExpectedProfit
     );
 
     const asset2 = await vault.totalAssets();

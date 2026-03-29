@@ -24,7 +24,9 @@ describe("ArbitrageVault Security Tests", function () {
   const DexType = {
     UNISWAP_V2: 0,
     UNISWAP_V3: 1,
-    CURVE: 2
+    CURVE: 2,
+    UNIVERSAL_ROUTER: 3,
+    CURVE_V2: 4
   };
 
   const initialDeposit = ethers.parseUnits("1000", 18);
@@ -70,67 +72,101 @@ describe("ArbitrageVault Security Tests", function () {
     await wxtz.mint(await v2Router.getAddress(), liquidity);
   });
 
-  it("Access Control: Should prevent non-strategists from calling executeArbitrage", async function () {
+  it("Access Control: Should prevent non-strategists from calling executeMultiHop", async function () {
+    const steps = [{
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: "0x"
+    }, {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: "0x"
+    }];
     await expect(
-      vault.connect(user).executeArbitrage(
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        "0x",
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        "0x",
-        await wxtz.getAddress(),
-        initialDeposit / 2n
+      vault.connect(user).executeMultiHop(
+        steps,
+        initialDeposit / 2n,
+        0 // minExpectedProfit
       )
     ).to.be.revertedWith(/AccessControl: account .* is missing role .*/);
   });
 
   it("Whitelisting: Should revert if a DEX address is not whitelisted", async function () {
     const rogueDex = user.address;
+    const steps = [{
+        dex: rogueDex,
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: "0x"
+    }, {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: "0x"
+    }];
     await expect(
-      vault.connect(strategist).executeArbitrage(
-        rogueDex,
-        DexType.UNISWAP_V2,
-        "0x",
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        "0x",
-        await wxtz.getAddress(),
-        initialDeposit / 2n
+      vault.connect(strategist).executeMultiHop(
+        steps,
+        initialDeposit / 2n,
+        0 // minExpectedProfit
       )
-    ).to.be.revertedWith("DEX Buy not whitelisted");
+    ).to.be.revertedWith("DEX not whitelisted");
   });
 
   it("Invariant: Should revert if arbitrage is unprofitable", async function () {
     await v2Router.setMultiplier(95); // 0.95x multiplier -> lose 5%
     
+    const steps = [{
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: "0x"
+    }, {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: "0x"
+    }];
+
     await expect(
-      vault.connect(strategist).executeArbitrage(
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        "0x",
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        "0x",
-        await wxtz.getAddress(),
-        initialDeposit / 2n
+      vault.connect(strategist).executeMultiHop(
+        steps,
+        initialDeposit / 2n,
+        0 // minExpectedProfit
       )
-    ).to.be.revertedWith("Arbitrage unprofitable, reverting");
+    ).to.be.revertedWith("Arbitrage Unprofitable");
   });
 
   it("Parameter Integrity: Should revert on malformed DexType data", async function () {
     const badCurveData = "0x1234"; // Not enough bytes for (int128, int128)
     
+    const steps = [{
+        dex: await curvePool.getAddress(),
+        dexType: DexType.CURVE,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: badCurveData
+    }, {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: "0x"
+    }];
+
     await expect(
-      vault.connect(strategist).executeArbitrage(
-        await curvePool.getAddress(),
-        DexType.CURVE,
-        badCurveData,
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        "0x",
-        await wxtz.getAddress(),
-        initialDeposit / 2n
+      vault.connect(strategist).executeMultiHop(
+        steps,
+        initialDeposit / 2n,
+        0 // minExpectedProfit
       )
     ).to.be.reverted; // Reverts inside abi.decode in the Vault
   });

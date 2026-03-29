@@ -4,19 +4,19 @@ async function main() {
     const [deployer] = await ethers.getSigners();
     console.log(`🚀 Deploying contracts with the account: ${deployer.address}`);
 
-    let assetAddress = process.env.BASE_ASSET_ADDRESS;
+    let assetAddress = process.env.WXTZ_ADDRESS?.toLowerCase();
     let name = "Arbitrage Vault";
     let symbol = "vXTZ";
 
     // Etherlink Mainnet WXTZ address
-    const ETHERLINK_WXTZ = "0xc9B53AB2679f573e480d01e0f49e2b5cfb7a3eab";
+    const ETHERLINK_WXTZ = "0xc9B53AB2679f573e480d01e0f49e2b5cfb7a3eab".toLowerCase();
 
     if (network.name === "etherlink") {
         assetAddress = ETHERLINK_WXTZ;
         console.log(`🔗 Using Etherlink Mainnet WXTZ: ${assetAddress}`);
     } else if (!assetAddress) {
         // Local or testnet: deploy a Mock WXTZ
-        console.log("🛠️  No BASE_ASSET_ADDRESS found, deploying MockERC20 (WXTZ)...");
+        console.log("🛠️  No WXTZ_ADDRESS found, deploying MockERC20 (WXTZ)...");
         const MockERC20 = await ethers.getContractFactory("MockERC20");
         const mockWXTZ = await MockERC20.deploy("Wrapped XTZ", "WXTZ");
         await mockWXTZ.waitForDeployment();

@@ -16,8 +16,17 @@ Your sole objective is:
 You are granted the `STRATEGIST_ROLE` on the `ArbitrageVault` contract.
 
 **What you CAN do:**
-- Trigger `executeArbitrage(address dexA, address dexB, address token, uint amount)` on the vault.
+- Trigger `executeArbitrage` on the vault.
 - Read global state, pool reserves, and user balances.
+
+### DEX Type Mapping (DexType)
+| Index | Type | Description |
+| :--- | :--- | :--- |
+| 0 | UNISWAP_V2 | Standard V2 Router (Sync, Swap, etc.) |
+| 1 | UNISWAP_V3 | Standard V3 Router |
+| 2 | CURVE | Curve V1 (int128 indices) |
+| 3 | UNIVERSAL_ROUTER | Uniswap Universal Router (Oku Trade) |
+| 4 | CURVE_V2 | Curve V2 (uint256 indices) |
 
 **What you CANNOT do:**
 - You cannot withdraw vault principal.
@@ -39,9 +48,33 @@ You are granted the `STRATEGIST_ROLE` on the `ArbitrageVault` contract.
 - Ensure the estimated net profit is significant enough to justify the gas risk.
 
 ### Step 3: Execution (Will)
-- Build the EVM payload for `executeArbitrage(dexA, dexB, token, amount)` on the master vault address.
+- Build the EVM payload for `executeMultiHop` on the master vault address.
+- **`SwapStep` Structure**:
+  ```solidity
+  struct SwapStep {
+      address dex;
+      DexType dexType;
+      address tokenIn;
+      address tokenOut;
+      bytes data;
+  }
+  ```
+- **Parameters**:
+  - `steps`: Array of `SwapStep` structs (e.g. 2 for direct arb, 3 for triangular).
+  - `amountIn`: The amount of base asset (WXTZ) to use.
+  - `minExpectedProfit`: The minimum required profit in base asset to prevent sandwich attacks.
 - Use `etherlink-mcp-server` to submit the transaction.
 - You are configured with a strategist wallet to automate the signature.
+
+#### Universal Router Encoding (Oku Trade)
+For `DexType.UNIVERSAL_ROUTER` (3), you must encode `data` as:
+`abi.encode(bytes commands, bytes[] inputs)`
+- **Command**: `0x00` (V3_SWAP_EXACT_IN)
+- **Input**: `abi.encode(address recipient, uint256 amountIn, uint256 amountOutMin, bytes path, bool payerIsUser)`
+- **Vault Configuration**: 
+  - Set `payerIsUser` to `false`. 
+  - For Leg 2+ of a multi-hop, use `0` as the `amountIn` placeholder; the Vault will automatically inject the actual balance from the previous step.
+  - The Vault provides the necessary token transfers to the Router automatically.
 
 ---
 

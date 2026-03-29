@@ -2,96 +2,173 @@ import { ethers, network } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
 
+/**
+ * Modular Flow Testing Script for ArbitrageVault.
+ * Use flags to execute specific parts of the flow:
+ * --whitelist, --deposit, --arbitrage, --withdraw
+ */
 async function main() {
     const [deployer] = await ethers.getSigners();
-    console.log(`🚀 Testing flow with the account: ${deployer.address}`);
+    const args = process.argv;
 
+    const whitelistFlag = process.env.npm_config_whitelist === "true" || args.includes("--whitelist") || process.env.WHITELIST === "true";
+    const depositFlag = process.env.npm_config_deposit === "true" || args.includes("--deposit") || process.env.DEPOSIT === "true";
+    const arbitrageFlag = process.env.npm_config_arbitrage === "true" || args.includes("--arbitrage") || process.env.ARBITRAGE === "true";
+    const withdrawFlag = process.env.npm_config_withdraw === "true" || args.includes("--withdraw") || process.env.WITHDRAW === "true";
+
+    if (!whitelistFlag && !depositFlag && !arbitrageFlag && !withdrawFlag) {
+        console.log("ℹ️  Usage via npm: npm run test-flow:etherlink --whitelist --deposit --arbitrage --withdraw");
+        console.log("ℹ️  Usage via env: WHITELIST=true npx hardhat run scripts/test_flow.ts --network <network>");
+        return;
+    }
+
+    console.log(`🚀 Executing flow with account: ${deployer.address}`);
+
+    // Load setup data
     const poolsPath = path.join(__dirname, "../test/etherlink_pools.json");
     const pools = JSON.parse(fs.readFileSync(poolsPath, "utf8"));
 
-    const ETHERLINK_WXTZ = "0xc9B53AB2679f573e480d01e0f49e2b5cfb7a3eab";
-    const ETHERLINK_USDC = "0x796Ea11Fa2dD751eD01b53C372fFDB4AAa8f00F9";
-    const OKU_ROUTER = "0x973aCbcC75E4D40f379e950882e37905188E67E7"; 
+    const ETHERLINK_WXTZ = process.env.WXTZ_ADDRESS?.toLowerCase();
+    const ETHERLINK_USDC = process.env.USDC_ADDRESS?.toLowerCase();
+    const OKU_ROUTER = process.env.OKU_ROUTER?.toLowerCase();
+
+    if (!ETHERLINK_WXTZ || !ETHERLINK_USDC || !OKU_ROUTER) {
+        throw new Error("❌ Missing WXTZ_ADDRESS, USDC_ADDRESS, or OKU_ROUTER in .env");
+    }
+
+    const vaultAddress = process.env.VAULT_ADDRESS?.toLowerCase();
+    if (!vaultAddress) {
+        throw new Error("❌ Missing VAULT_ADDRESS in .env");
+    }
 
     const DexType = { UNISWAP_V2: 0, UNISWAP_V3: 1, CURVE: 2 };
-
-    const baseAssetAddress = ETHERLINK_WXTZ;
-    const envAddress = process.env.VAULT_ADDRESS;
-    let vaultAddress: string;
-
-    if (!envAddress) {
-        console.log("🏗️  No VAULT_ADDRESS found, deploying new instance on fork...");
-        const ArbitrageVault = await ethers.getContractFactory("ArbitrageVault");
-        const vaultInstance = await ArbitrageVault.deploy(baseAssetAddress, "Arbitrage Vault XTZ", "vXTZ");
-        await vaultInstance.waitForDeployment();
-        vaultAddress = await vaultInstance.getAddress();
-        console.log(`✅ ArbitrageVault deployed to: ${vaultAddress}`);
-
-        // Grant Strategist Role
-        const STRATEGIST_ROLE = await vaultInstance.STRATEGIST_ROLE();
-        await vaultInstance.grantRole(STRATEGIST_ROLE, deployer.address);
-    } else {
-        vaultAddress = envAddress as string;
-    }
-
     const vault = await ethers.getContractAt("ArbitrageVault", vaultAddress);
-    const wxtz = await ethers.getContractAt("IERC20", baseAssetAddress);
+    const wxtz = await ethers.getContractAt("IERC20", ETHERLINK_WXTZ);
 
-    console.log("\n🛡️  Whitelisting real DEX addresses...");
-    await (await vault.setWhitelistedDex(OKU_ROUTER, true)).wait();
-    
-    const curvePool = pools.find((p: any) => p.dex.includes("Curve"));
-    if (curvePool) {
-        await (await vault.setWhitelistedDex(curvePool.address, true)).wait();
-        console.log(`✅ Whitelisted Curve pool: ${curvePool.address}`);
+    // --- STEP: WHITELIST ---
+    if (whitelistFlag) {
+        console.log("\n🛡️  Whitelisting real DEX addresses...");
+
+        // Whitelist the main Oku SwapRouter
+        await (await vault.setWhitelistedDex(OKU_ROUTER, true)).wait();
+        console.log(`✅ Whitelisted Oku SwapRouter: ${OKU_ROUTER}`);
+
+        // Whitelist all pools from the JSON file
+        for (const pool of pools) {
+            await (await vault.setWhitelistedDex(pool.address, true)).wait();
+            console.log(`✅ Whitelisted ${pool.dex} pool (${pool.pair}): ${pool.address}`);
+        }
+
+        console.log("✅ Whitelisting completed.");
     }
 
-    // 1. Initial Deposit (XTZ -> WXTZ -> Vault)
-    const depositAmount = ethers.parseUnits("1", 18); // 1 XTZ
-    console.log(`\n🏦 1. Depositing ${ethers.formatUnits(depositAmount, 18)} WXTZ...`);
+    // --- STEP: DEPOSIT ---
+    if (depositFlag) {
+        const depositAmount = ethers.parseUnits("1", 18);
+        console.log(`\n🏦 Depositing ${ethers.formatUnits(depositAmount, 18)} WXTZ...`);
 
-    // Wrap XTZ
-    const wxtzContract = new ethers.Contract(baseAssetAddress, ["function deposit() public payable"], deployer);
-    await (await wxtzContract.deposit({ value: depositAmount })).wait();
+        const balance = await wxtz.balanceOf(deployer.address);
+        if (balance < depositAmount) {
+            throw new Error(`Insufficient WXTZ balance. Need ${ethers.formatUnits(depositAmount, 18)} but have ${ethers.formatUnits(balance, 18)}`);
+        }
 
-    await (await wxtz.approve(vaultAddress, depositAmount)).wait();
-    await (await vault.deposit(depositAmount, deployer.address)).wait();
-    console.log(`✅ Deposited. Vault state: ${ethers.formatUnits(await vault.totalAssets(), 18)} WXTZ`);
+        await (await wxtz.approve(vaultAddress, depositAmount)).wait();
+        await (await vault.deposit(depositAmount, deployer.address)).wait();
+        console.log(`✅ Deposited. Vault assets: ${ethers.formatUnits(await vault.totalAssets(), 18)} WXTZ`);
+    }
 
-    // 2. Perform Real Arbitrage/Swap Logic
-    console.log("\n🔄 2. Executing Real Pool Swap (Oku Trade V3)...");
-    
-    // Scenario: WXTZ -> USDC on Oku (UniV3)
-    const swapAmount = depositAmount / 2n;
-    
-    // Oku V3 Data: uint24 fee (3000 = 0.3%), uint160 sqrtPriceLimitX96 (0 = no limit)
-    const okuData = ethers.AbiCoder.defaultAbiCoder().encode(["uint24", "uint160"], [3000, 0]);
+    // --- STEP: ARBITRAGE ---
+    if (arbitrageFlag) {
+        console.log("\n🔄 Executing Real Pool Swap (Oku Trade V3)...");
+        const depositAmount = await vault.totalAssets();
+        if (depositAmount === 0n) {
+            throw new Error("❌ Vault is empty. Deposit some funds first using --deposit");
+        }
 
-    // For the purpose of this flow test, we'll use Oku for the first leg
-    // and a mock or the same router for the second leg to satisfy the cycle requirement.
-    // On a real fork, Leg 2 might revert if not profitable, so we'll "simulate" profit by 
-    // minting tokens if on a local test environment, or just verifying the call mechanics.
+        const swapAmount = depositAmount / 2n;
+        // Universal Router (V3_SWAP_EXACT_IN)
+        // Command 0x00 = V3_SWAP_EXACT_IN
+        const commands = new Uint8Array([0x00]);
 
-    console.log(`🚀 Swapping ${ethers.formatUnits(swapAmount, 18)} WXTZ for USDC via Oku...`);
-    
-    await (await vault.executeArbitrage(
-        OKU_ROUTER,
-        DexType.UNISWAP_V3,
-        okuData,
-        OKU_ROUTER, // Leg 2 (reversing to USDC -> WXTZ)
-        DexType.UNISWAP_V3,
-        okuData,
-        ETHERLINK_USDC,
-        swapAmount
-    )).wait();
+        // Path encoding: [tokenIn(20 bytes), fee(3 bytes), tokenOut(20 bytes)]
+        const pathBaseToIntermediate = ethers.solidityPacked(
+            ["address", "uint24", "address"],
+            [ETHERLINK_WXTZ, 500, ETHERLINK_USDC]
+        );
 
-    console.log(`✅ Arbitrage mechanics verified. Current assets: ${ethers.formatUnits(await vault.totalAssets(), 18)}`);
+        const pathIntermediateToBase = ethers.solidityPacked(
+            ["address", "uint24", "address"],
+            [ETHERLINK_USDC, 500, ETHERLINK_WXTZ]
+        );
 
-    // 3. Final Withdrawal
-    console.log("\n💸 3. Withdrawing assets...");
-    const userShares = await vault.balanceOf(deployer.address);
-    await (await vault.redeem(userShares, deployer.address, deployer.address)).wait();
-    console.log("✨ Integration Test Flow Complete!");
+        // Input encoding: [address recipient, uint256 amountIn, uint256 amountOutMinimum, bytes path, bool payerIsUser]
+        const inputBaseToIntermediate = ethers.AbiCoder.defaultAbiCoder().encode(
+            ["address", "uint256", "uint256", "bytes", "bool"],
+            [vaultAddress, swapAmount, 0, pathBaseToIntermediate, false]
+        );
+
+        const inputIntermediateToBase = ethers.AbiCoder.defaultAbiCoder().encode(
+            ["address", "uint256", "uint256", "bytes", "bool"],
+            [vaultAddress, 0, 0, pathIntermediateToBase, false]
+        );
+
+        // Final payload structure for ArbitrageVault DexType.UNIVERSAL_ROUTER
+        const urDataLeg1 = ethers.AbiCoder.defaultAbiCoder().encode(
+            ["bytes", "bytes[]"],
+            [commands, [inputBaseToIntermediate]]
+        );
+
+        const urDataLeg2 = ethers.AbiCoder.defaultAbiCoder().encode(
+            ["bytes", "bytes[]"],
+            [commands, [inputIntermediateToBase]]
+        );
+
+        console.log(`🚀 Swapping ${ethers.formatUnits(swapAmount, 18)} WXTZ via Oku...`);
+        console.log("🛠️  Enabling testMode to bypass unprofitable trade reverts...");
+        await (await vault.setTestMode(true)).wait();
+
+        const steps = [
+            {
+                dex: OKU_ROUTER,
+                dexType: 3, // DexType.UNIVERSAL_ROUTER
+                tokenIn: ETHERLINK_WXTZ,
+                tokenOut: ETHERLINK_USDC,
+                data: urDataLeg1
+            },
+            {
+                dex: OKU_ROUTER,
+                dexType: 3, // DexType.UNIVERSAL_ROUTER
+                tokenIn: ETHERLINK_USDC,
+                tokenOut: ETHERLINK_WXTZ,
+                data: urDataLeg2
+            }
+        ];
+
+        await (await vault.executeMultiHop(
+            steps,
+            swapAmount,
+            0 // minExpectedProfit
+        )).wait();
+
+        await (await vault.setTestMode(false)).wait();
+        console.log("🔒 Disabling testMode. Trade complete!");
+
+        console.log(`✅ Arbitrage executed. New total assets: ${ethers.formatUnits(await vault.totalAssets(), 18)}`);
+    }
+
+    // --- STEP: WITHDRAW ---
+    if (withdrawFlag) {
+        console.log("\n💸 Withdrawing assets...");
+        const userShares = await vault.balanceOf(deployer.address);
+        if (userShares === 0n) {
+            console.log("ℹ️  Nothing to withdraw.");
+        } else {
+            await (await vault.redeem(userShares, deployer.address, deployer.address)).wait();
+            console.log("✅ Withdrawal completed.");
+        }
+    }
+
+    console.log("\n✨ Selective Flow Completed!");
 }
 
 main().catch((error) => {

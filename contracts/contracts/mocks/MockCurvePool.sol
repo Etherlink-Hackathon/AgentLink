@@ -28,4 +28,16 @@ contract MockCurvePool is ICurvePool {
         
         IERC20(tokenOut).transfer(msg.sender, dy);
     }
+
+    // Curve V2 mock
+    function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy) external override returns (uint256 dy) {
+        address tokenIn = coins[i];
+        address tokenOut = coins[j];
+        
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), dx);
+        
+        dy = (dx * multiplier) / 100;
+        
+        IERC20(tokenOut).transfer(msg.sender, dy);
+    }
 }

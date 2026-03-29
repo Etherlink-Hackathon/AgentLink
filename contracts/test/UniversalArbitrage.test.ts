@@ -24,7 +24,9 @@ describe("ArbitrageVault Universal DEX Support", function () {
   const DexType = {
     UNISWAP_V2: 0,
     UNISWAP_V3: 1,
-    CURVE: 2
+    CURVE: 2,
+    UNIVERSAL_ROUTER: 3,
+    CURVE_V2: 4
   };
 
   beforeEach(async function () {
@@ -90,15 +92,27 @@ describe("ArbitrageVault Universal DEX Support", function () {
     
     const initialBalance = await vault.totalAssets();
     
-    await vault.connect(strategist).executeArbitrage(
-      await v2Router.getAddress(),
-      DexType.UNISWAP_V2,
-      data,
-      await v2Router.getAddress(),
-      DexType.UNISWAP_V2,
-      data,
-      await wxtz.getAddress(),
-      amountBase
+    const steps = [
+      {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: data
+      },
+      {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: data
+      }
+    ];
+
+    await vault.connect(strategist).executeMultiHop(
+      steps,
+      amountBase,
+      0 // minExpectedProfit
     );
 
     const finalBalance = await vault.totalAssets();
@@ -127,15 +141,27 @@ describe("ArbitrageVault Universal DEX Support", function () {
     const initialBalance = await vault.totalAssets();
 
     // Buy on V3, Sell on Curve
-    await vault.connect(strategist).executeArbitrage(
-      await v3Router.getAddress(),
-      DexType.UNISWAP_V3,
-      v3Data,
-      await curvePool.getAddress(),
-      DexType.CURVE,
-      curveDataSell,
-      await wxtz.getAddress(),
-      amountBase
+    const steps = [
+      {
+        dex: await v3Router.getAddress(),
+        dexType: DexType.UNISWAP_V3,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: v3Data
+      },
+      {
+        dex: await curvePool.getAddress(),
+        dexType: DexType.CURVE,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: curveDataSell
+      }
+    ];
+
+    await vault.connect(strategist).executeMultiHop(
+      steps,
+      amountBase,
+      0 // minExpectedProfit
     );
 
     const finalBalance = await vault.totalAssets();
@@ -149,35 +175,59 @@ describe("ArbitrageVault Universal DEX Support", function () {
     // Set V2 multiplier to 0.9 (90/100) to simulate loss
     await v2Router.setMultiplier(90);
 
+    const steps = [
+      {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: data
+      },
+      {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: data
+      }
+    ];
+
     await expect(
-      vault.connect(strategist).executeArbitrage(
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        data,
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        data,
-        await wxtz.getAddress(),
-        amountBase
+      vault.connect(strategist).executeMultiHop(
+        steps,
+        amountBase,
+        0 // minExpectedProfit
       )
-    ).to.be.revertedWith("Arbitrage unprofitable, reverting");
+    ).to.be.revertedWith("Arbitrage Unprofitable");
   });
 
   it("Should revert if DEX is not whitelisted", async function () {
     const amountBase = ethers.parseUnits("100", 18);
     const randomAddress = user.address;
 
+    const steps = [
+      {
+        dex: randomAddress,
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await usdc.getAddress(),
+        tokenOut: await wxtz.getAddress(),
+        data: "0x"
+      },
+      {
+        dex: await v2Router.getAddress(),
+        dexType: DexType.UNISWAP_V2,
+        tokenIn: await wxtz.getAddress(),
+        tokenOut: await usdc.getAddress(),
+        data: "0x"
+      }
+    ];
+
     await expect(
-      vault.connect(strategist).executeArbitrage(
-        randomAddress,
-        DexType.UNISWAP_V2,
-        "0x",
-        await v2Router.getAddress(),
-        DexType.UNISWAP_V2,
-        "0x",
-        await wxtz.getAddress(),
-        amountBase
+      vault.connect(strategist).executeMultiHop(
+        steps,
+        amountBase,
+        0 // minExpectedProfit
       )
-    ).to.be.revertedWith("DEX Buy not whitelisted");
+    ).to.be.revertedWith("DEX not whitelisted");
   });
 });

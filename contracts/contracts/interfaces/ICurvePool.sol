@@ -8,4 +8,7 @@ interface ICurvePool {
         uint256 dx, 
         uint256 min_dy
     ) external returns (uint256);
+    
+    // Curve V2 parameters
+    function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy) external returns (uint256);
 }

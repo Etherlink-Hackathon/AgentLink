@@ -13,7 +13,9 @@ describe("ArbitrageVault Pool Integration Tests", function () {
   const DexType = {
     UNISWAP_V2: 0,
     UNISWAP_V3: 1,
-    CURVE: 2
+    CURVE: 2,
+    UNIVERSAL_ROUTER: 3,
+    CURVE_V2: 4
   };
 
   beforeEach(async function () {
@@ -67,21 +69,30 @@ describe("ArbitrageVault Pool Integration Tests", function () {
       const amount = ethers.parseUnits("1.0", 18);
       const intermediateToken = "0x0000000000000000000000000000000000000001"; // Dummy
 
-      // Construct a call to make sure the signature matches andwhitelisting passes
-      // We expect a revert since the address doesn't contain a real pool/router,
-      // but NOT a "DEX not whitelisted" or role error.
+      const steps = [
+        {
+          dex: pool.address,
+          dexType: type,
+          tokenIn: await asset.getAddress(),
+          tokenOut: intermediateToken,
+          data: data
+        },
+        {
+          dex: pool.address,
+          dexType: type,
+          tokenIn: intermediateToken,
+          tokenOut: await asset.getAddress(),
+          data: data
+        }
+      ];
+
       await expect(
-        vault.connect(strategist).executeArbitrage(
-          pool.address,
-          type,
-          data,
-          pool.address,
-          type,
-          data,
-          intermediateToken,
-          amount
+        vault.connect(strategist).executeMultiHop(
+          steps,
+          amount,
+          0 // minExpectedProfit
         )
-      ).to.not.be.revertedWith("DEX Buy not whitelisted");
+      ).to.not.be.revertedWith("DEX not whitelisted");
     }
   });
 });

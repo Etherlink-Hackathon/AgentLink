@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IDexRouter.sol";
 import "./interfaces/ISwapRouterV3.sol";
 import "./interfaces/ICurvePool.sol";
+import "./interfaces/IUniversalRouter.sol";
 
 /**
  * @title ArbitrageVault
@@ -19,10 +20,21 @@ import "./interfaces/ICurvePool.sol";
 contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    enum DexType { UNISWAP_V2, UNISWAP_V3, CURVE }
+    enum DexType { UNISWAP_V2, UNISWAP_V3, CURVE, UNIVERSAL_ROUTER, CURVE_V2 }
+
+    struct SwapStep {
+        address dex;
+        DexType dexType;
+        address tokenIn;
+        address tokenOut;
+        bytes data;
+    }
 
     bytes32 public constant STRATEGIST_ROLE = keccak256("STRATEGIST_ROLE");
     
+    // Toggle for testing Arbitrage flow on Mainnet without profitability constraints
+    bool public isTestMode = false;
+
     // Mapping of whitelisted DEX routers/pools
     mapping(address => bool) public whitelistedDexes;
 
@@ -31,6 +43,12 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
         address indexed dexBuy,
         address indexed dexSell,
         address tokenTrade,
+        uint256 profit
+    );
+
+    event MultiHopArbitrageExecuted(
+        address indexed strategist,
+        uint256 hops,
         uint256 profit
     );
 
@@ -53,67 +71,74 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @dev Core function called by the OpenClaw Agent.
-     * Enforces that the trade strictly increases the Vault's totalAssets().
-     *
-     * @param dexBuy           Address of the router/pool to buy the intermediate token
-     * @param typeBuy          Type of DEX for the buy leg
-     * @param dataBuy          DEX-specific encoded data (e.g. fee for V3, indices for Curve)
-     * @param dexSell          Address of the router/pool to sell the intermediate token
-     * @param typeSell         Type of DEX for the sell leg
-     * @param dataSell         DEX-specific encoded data
-     * @param intermediateToken Address of the token to trade against the base asset
-     * @param amountBase       Amount of the Vault's underlying asset to use
+     * @dev Admin function to enable or disable the profitability safeguard for testing.
      */
-    function executeArbitrage(
-        address dexBuy,
-        DexType typeBuy,
-        bytes calldata dataBuy,
-        address dexSell,
-        DexType typeSell,
-        bytes calldata dataSell,
-        address intermediateToken,
-        uint256 amountBase
+    function setTestMode(bool _mode) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        isTestMode = _mode;
+    }
+
+    /**
+     * @dev Core function for multi-hop triangular arbitrage.
+     * @param steps             Array of swap instructions
+     * @param amountIn          Input amount of the vault's asset
+     * @param minExpectedProfit Minimum profit safeguard
+     */
+    function executeMultiHop(
+        SwapStep[] calldata steps,
+        uint256 amountIn,
+        uint256 minExpectedProfit
     ) external onlyRole(STRATEGIST_ROLE) nonReentrant {
-        require(whitelistedDexes[dexBuy], "DEX Buy not whitelisted");
-        require(whitelistedDexes[dexSell], "DEX Sell not whitelisted");
-        require(amountBase > 0, "Zero amount");
+        _executeMultiHop(steps, amountIn, minExpectedProfit);
+    }
+
+    /**
+     * @dev Internal implementation shared by multi-hop and legacy wrappers.
+     */
+    function _executeMultiHop(
+        SwapStep[] memory steps,
+        uint256 amountIn,
+        uint256 minExpectedProfit
+    ) internal {
+        require(steps.length > 0, "No steps provided");
+        require(amountIn > 0, "Zero amount");
 
         address baseAsset = asset();
         uint256 initialAssets = totalAssets();
-        require(initialAssets >= amountBase, "Insufficient vault liquidity");
+        require(initialAssets >= amountIn, "Insufficient vault liquidity");
 
-        // 1. Swap Leg 1: Base Asset -> Intermediate Token
-        IERC20(baseAsset).safeIncreaseAllowance(dexBuy, amountBase);
-        uint256 tokensReceived = _performSwap(
-            dexBuy,
-            typeBuy,
-            baseAsset,
-            intermediateToken,
-            amountBase,
-            dataBuy
-        );
-        require(tokensReceived > 0, "First swap failed");
+        // Safety: ensure cycle starts and ends with base asset
+        require(steps[0].tokenIn == baseAsset, "Must start with base asset");
+        require(steps[steps.length - 1].tokenOut == baseAsset, "Must end with base asset");
 
-        // 2. Swap Leg 2: Intermediate Token -> Base Asset
-        IERC20(intermediateToken).safeIncreaseAllowance(dexSell, tokensReceived);
-        _performSwap(
-            dexSell,
-            typeSell,
-            intermediateToken,
-            baseAsset,
-            tokensReceived,
-            dataSell
-        );
+        uint256 currentAmount = amountIn;
 
-        // 3. Mathematical Safety Enforcement
+        for (uint256 i = 0; i < steps.length; i++) {
+            SwapStep memory step = steps[i];
+            require(whitelistedDexes[step.dex], "DEX not whitelisted");
+
+            // Handle Allowance (standard logic)
+            if (IERC20(step.tokenIn).allowance(address(this), step.dex) < currentAmount) {
+                IERC20(step.tokenIn).approve(step.dex, type(uint256).max);
+            }
+
+            // Perform individual leg
+            currentAmount = _performSwap(
+                step.dex,
+                step.dexType,
+                step.tokenIn,
+                step.tokenOut,
+                currentAmount,
+                step.data
+            );
+        }
+
         uint256 finalAssets = totalAssets();
-        require(finalAssets > initialAssets, "Arbitrage unprofitable, reverting");
+        require(finalAssets >= initialAssets + minExpectedProfit || isTestMode, "Arbitrage Unprofitable");
 
-        uint256 profit = finalAssets - initialAssets;
-        emit ArbitrageExecuted(msg.sender, dexBuy, dexSell, intermediateToken, profit);
+        uint256 profit = finalAssets > initialAssets ? finalAssets - initialAssets : 0;
+        emit MultiHopArbitrageExecuted(msg.sender, steps.length, profit);
     }
-
+    
     /**
      * @dev Internal helper to route swaps to different DEX types.
      */
@@ -123,7 +148,7 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
-        bytes calldata dexData
+        bytes memory dexData
     ) internal returns (uint256) {
         uint256 balanceBefore = IERC20(tokenOut).balanceOf(address(this));
 
@@ -146,7 +171,6 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
                 tokenOut: tokenOut,
                 fee: fee,
                 recipient: address(this),
-                deadline: block.timestamp,
                 amountIn: amountIn,
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: sqrtPriceLimitX96
@@ -154,9 +178,40 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
         } else if (dexType == DexType.CURVE) {
             (int128 i, int128 j) = abi.decode(dexData, (int128, int128));
             ICurvePool(dex).exchange(i, j, amountIn, 0);
+        } else if (dexType == DexType.UNIVERSAL_ROUTER) {
+            (bytes memory commands, bytes[] memory inputs) = abi.decode(dexData, (bytes, bytes[]));
+            
+            // 1. If payload says amount is "0", inject the actual amount received from leg 1
+            // This protects against slippage and is the "Hardened" way to handle UR.
+            if (commands.length > 0 && uint8(commands[0]) == 0x00) { // V3_SWAP_EXACT_IN
+                _injectURAmount(inputs[0], amountIn);
+            }
+
+            // 2. Transfer tokens to Router (UR requires this for payerIsUser = false)
+            IERC20(tokenIn).safeTransfer(dex, amountIn);
+            
+            // 3. Execute
+            IUniversalRouter(dex).execute(commands, inputs, block.timestamp);
+        } else if (dexType == DexType.CURVE_V2) {
+            (uint256 i, uint256 j) = abi.decode(dexData, (uint256, uint256));
+            ICurvePool(dex).exchange(i, j, amountIn, 0);
         }
 
         return IERC20(tokenOut).balanceOf(address(this)) - balanceBefore;
+    }
+
+    /**
+     * @dev Safely injects the actual amountIn into a V3_SWAP_EXACT_IN payload.
+     * This avoids complex off-chain re-encoding when slippage occurs between legs.
+     */
+    function _injectURAmount(bytes memory input, uint256 amount) internal pure {
+        // Standard V3_SWAP_EXACT_IN (address, uint256, uint256, bytes, bool) is 160+ bytes
+        require(input.length >= 160, "Input too short for V3 injection");
+        assembly {
+            // Memory layout of bytes memory: [32B length][32B address][32B amountIn]...
+            // mstore(add(input, 64), amount) targets the second 32-byte word of the data.
+            mstore(add(input, 64), amount) 
+        }
     }
 
     /**
