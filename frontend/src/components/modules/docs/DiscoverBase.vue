@@ -36,7 +36,7 @@ const getImageUrl = (image) => {
 <template>
 	<div :class="$style.wrapper">
 		<div :class="$style.article">
-			<HeaderAnchor h="1">Juster Documentation</HeaderAnchor>
+			<HeaderAnchor h="1">AgentLink Documentation</HeaderAnchor>
 
 			<p>
 				This documentation will help you understand how our platform is

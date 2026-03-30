@@ -5,7 +5,7 @@
 import { ref } from "vue"
 
 const props = defineProps({
-	title: { type: String, default: "Juster Documentation" },
+	title: { type: String, default: "AgentLink Documentation" },
 	links: Array,
 })
 
