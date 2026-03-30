@@ -59,17 +59,19 @@ const getTokenPair = (pair) => {
 					<tr>
 						<th>TIMESTAMP</th>
 						<th>TYPE</th>
-						<th>PAIR</th>
-						<th>DEX POOL</th>
+						<th v-if="mode === 'agent'">PAIR</th>
+						<th v-if="mode === 'agent'">DEX POOL</th>
 						<th>AMOUNT</th>
 						<th v-if="mode === 'agent'">PROFIT</th>
-						<th :class="$style.align_right">EXPLORER</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr v-for="(tx, index) in paginatedHistory" :key="index">
 						<td>
-							<Text size="13" weight="500" color="tertiary">{{ tx.timestamp }}</Text>
+							<a :href="getExplorerUrl(tx.hash)" target="_blank" :class="$style.time_link">
+								{{ tx.timestamp }}
+								<Icon name="external" size="14" :class="$style.external_icon" />
+							</a>
 						</td>
 						<td>
 							<Flex align="center" gap="8">
@@ -77,7 +79,7 @@ const getTokenPair = (pair) => {
 								<Text size="13" weight="600" color="secondary">{{ tx.type }}</Text>
 							</Flex>
 						</td>
-						<td>
+						<td v-if="mode === 'agent'">
 							<Flex align="center" gap="8">
 								<div v-if="tx.pair" :class="$style.pair_imgs">
 									<img :src="getCurrencyIcon(getTokenPair(tx.pair)[0])" alt="symbol" />
@@ -86,7 +88,7 @@ const getTokenPair = (pair) => {
 								<Text size="13" weight="600" color="primary">{{ tx.pair || "—" }}</Text>
 							</Flex>
 						</td>
-						<td>
+						<td v-if="mode === 'agent'">
 							<Flex align="center" gap="8">
 								<img v-if="tx.dex" :src="getCurrencyIcon(tx.dex)" :class="$style.dex_img" alt="dex" />
 								<Text size="13" weight="600" color="secondary">{{ tx.dex || "—" }}</Text>
@@ -99,11 +101,6 @@ const getTokenPair = (pair) => {
 							<Text size="13" weight="700" :color="tx.profit.startsWith('+') ? 'green' : (tx.profit.startsWith('-') ? 'red' : 'primary')">
 								{{ tx.profit }}
 							</Text>
-						</td>
-						<td :class="$style.align_right">
-							<a :href="getExplorerUrl(tx.hash)" target="_blank" :class="$style.explorer_link">
-								<Icon name="external" size="14" />
-							</a>
 						</td>
 					</tr>
 					<tr v-if="history.length === 0">
@@ -245,5 +242,25 @@ const getTokenPair = (pair) => {
 	height: 16px;
 	border-radius: 5px;
 	flex-shrink: 0;
+}
+
+.time_link {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--text-tertiary);
+	text-decoration: none;
+	cursor: pointer;
+	position: relative;
+}
+
+.time_link:hover {
+	color: var(--text-primary);
+	text-decoration: underline;
+}
+.time_link:hover .external_icon {
+	color: var(--text-primary);
 }
 </style>
