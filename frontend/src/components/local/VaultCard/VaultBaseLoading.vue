@@ -1,17 +1,10 @@
 <script setup>
 import Flex from "@layout/Flex.vue"
-import Breadcrumbs from "@ui/Breadcrumbs.vue"
 
-const breadcrumbs = [
-	{ name: "Explore", path: "/explore" },
-	{ name: "Vaults", path: "/vaults" },
-	{ name: "Loading...", path: "#" },
-]
 </script>
 
 <template>
 	<div :class="$style.wrapper">
-		<Breadcrumbs :crumbs="breadcrumbs" :class="$style.breadcrumbs" />
 
 		<Flex direction="column" gap="32">
 			<!-- Header Skeleton -->

@@ -3,6 +3,8 @@ import { ref } from "vue"
 import Button from "@ui/Button.vue"
 import Input from "@ui/Input.vue"
 
+const emit = defineEmits(["onDeposit", "onWithdraw"])
+
 const props = defineProps({
 	vault: Object,
 })
@@ -11,10 +13,19 @@ const activeTab = ref("deposit")
 const amount = ref("")
 
 const handlePreset = (preset) => {
+	const balance = 14.50 // Mock balance
 	if (preset === 'MAX') {
-		amount.value = "14.50"
+		amount.value = balance.toString()
 	} else {
-		amount.value = (14.50 * (preset / 100)).toFixed(2)
+		amount.value = (balance * (preset / 100)).toFixed(2)
+	}
+}
+
+const handleConfirm = () => {
+	if (activeTab.value === 'deposit') {
+		emit('onDeposit', amount.value)
+	} else {
+		emit('onWithdraw', amount.value)
 	}
 }
 </script>
@@ -22,20 +33,23 @@ const handlePreset = (preset) => {
 <template>
 	<div :class="$style.wrapper">
 		<Flex direction="column" gap="24">
-			<div :class="$style.tabs">
-				<div
-					@click="activeTab = 'deposit'"
-					:class="[$style.tab, activeTab === 'deposit' && $style.active]"
-				>
-					Deposit
-				</div>
-				<div
-					@click="activeTab = 'withdraw'"
-					:class="[$style.tab, activeTab === 'withdraw' && $style.active]"
-				>
-					Withdraw
-				</div>
+			<div :class="$style.switcher">
+			<div
+				@click="activeTab = 'deposit'"
+				:class="[$style.tab, activeTab == 'deposit' && $style.active]"
+			>
+				Deposit
 			</div>
+			<div
+				@click="activeTab = 'withdraw'"
+				:class="[
+					$style.tab,
+					activeTab == 'withdraw' && $style.active,
+				]"
+			>
+				Withdraw
+			</div>
+		</div>
 
 			<Flex direction="column" gap="12">
 				<Flex justify="between" align="center">
@@ -66,11 +80,11 @@ const handlePreset = (preset) => {
 			</Flex>
 
 			<Button
-					@click="emit('onDeposit', amount)"
+					@click="handleConfirm"
 					type="primary"
 					size="medium"
 					keybind="C"
-					@onKeybind="emit('onDeposit', amount)"
+					@onKeybind="handleConfirm"
 					block
 					style="border-radius: 4px 7px 7px 4px"
 				>
@@ -205,5 +219,58 @@ const handlePreset = (preset) => {
 .disclaimer {
 	line-height: 1.5;
   color: var(--text-tertiary);
+}
+
+.switcher {
+	display: flex;
+
+	margin: 0 20px 24px 20px;
+
+	border-radius: 6px;
+	box-shadow: 0 0 0 2px var(--border);
+}
+
+.tab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+
+	width: 100%;
+	height: 28px;
+	cursor: pointer;
+
+	font-size: 13px;
+	line-height: 1;
+	font-weight: 600;
+	color: var(--text-primary);
+
+	opacity: 0.7;
+
+	transition: all 0.2s ease;
+}
+
+.tab div {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--blue);
+}
+
+.tab:nth-child(1) {
+	border-radius: 6px 0 0 6px;
+}
+
+.tab:nth-child(2) {
+	border-radius: 0 6px 6px 0;
+}
+
+.tab.active {
+	background: var(--opacity-05);
+	opacity: 1;
+}
+
+.tab:active {
+	transform: translateY(1px);
 }
 </style>

@@ -4,6 +4,7 @@
  */
 import { ref, reactive, watch, computed, nextTick } from "vue"
 import { DateTime } from "luxon"
+import { ethers } from "ethers"
 import BN from "bignumber.js"
 
 /**
@@ -19,7 +20,13 @@ import LoadingDots from "@ui/LoadingDots.vue"
 /**
  * Services
  */
-import { flameWager as juster, analytics } from "@sdk"
+import { 
+	flameWager as juster, 
+	analytics, 
+	getAllowance, 
+	approve 
+} from "@sdk"
+import { shorten } from "@utils/misc"
 import { sanitizeInput, capitalizeFirstLetter, parsePoolName } from "@utils/misc"
 import { numberWithSymbol } from "@utils/amounts"
 
@@ -48,31 +55,87 @@ const emit = defineEmits(["onClose", "onBack"])
 
 const inputEl = ref(null)
 const amount = reactive({ value: 0, error: "" })
+const allowance = ref(0n)
+const approveTxHash = ref("")
+const depositTxHash = ref("")
+
+const progressStatus = computed(() => {
+	if (depositTxHash.value) return "Completed"
+	if (opConfirmationInProgress.value || isApproving.value) return "Processing"
+	return "Not Started"
+})
 
 const balanceToAmountRatio = computed(() => {
-	const percent = (amount.value * 100) / accountStore.balance
+	const balance = accountStore.balance || 0
+	const percent = balance > 0 ? (amount.value * 100) / balance : 0
+
+	let status = "awaiting"
+	if (percent > 0 && percent < 40) status = "ok"
+	else if (percent >= 40 && percent < 70) status = "medium"
+	else if (percent >= 70) status = "bad"
 
 	return {
 		percent,
-		status:
-			(percent == 0 && "awaiting") ||
-			(percent < 40 && "ok") ||
-			(percent < 70 && "medium") ||
-			(percent < 100 && "bad") ||
-			(percent > 100 && "bad"),
+		status,
 	}
 })
 
 const depositInShares = computed(() => amount.value / props.state.sharePrice)
 
 const opConfirmationInProgress = ref(false)
+const isApproving = ref(false)
+
+const fetchAllowance = async () => {
+	if (!accountStore.pkh || !props.selectedPool?.address) return
+	try {
+		const res = await getAllowance(props.selectedPool.address, accountStore.pkh)
+		allowance.value = res
+	} catch (err) {
+		console.error("Failed to fetch allowance:", err)
+	}
+}
+
 const handleDeposit = async () => {
 	if (buttonState.value.disabled) return
 
-	opConfirmationInProgress.value = true
-
 	try {
-		const op = await juster.pools[props.selectedPool.address].depositLiquidity(BN(amount.value))
+		const vaultAddress = props.selectedPool.address
+		const assets = ethers.parseUnits(amount.value.toString(), 18)
+
+		// 1. Approve Token
+		if (allowance.value < assets) {
+			isApproving.value = true
+			const tx = await approve(vaultAddress, assets)
+			approveTxHash.value = tx.hash
+			
+			notificationsStore.create({
+				notification: {
+					type: "info",
+					title: "Approval started",
+					description: "Please confirm the approval in your wallet",
+					autoDestroy: true,
+				},
+			})
+
+			await tx.wait()
+			await fetchAllowance()
+			isApproving.value = false
+			
+			notificationsStore.create({
+				notification: {
+					type: "success",
+					title: "Approval successful",
+					description: "Now you can proceed with the deposit",
+					autoDestroy: true,
+				},
+			})
+			return
+		}
+
+		// 2. Deposit
+		opConfirmationInProgress.value = true
+		const op = await juster.vaults[vaultAddress.toLowerCase()].deposit(assets, accountStore.pkh)
+		depositTxHash.value = op.hash
 
 		accountStore.pendingTransaction.awaiting = true
 		op.confirmation()
@@ -132,27 +195,39 @@ const buttonState = computed(() => {
 			text: "Previous transaction in process",
 			disabled: true,
 		}
-	if (opConfirmationInProgress.value)
-		return {
-			text: "Awaiting confirmation..",
-			disabled: true,
-			type: "secondary",
-		}
+	if (opConfirmationInProgress.value) {
+		return { text: "Processing Deposit...", disabled: true, type: "primary" }
+	}
+	if (isApproving.value) {
+		return { text: "Approving Assets...", disabled: true, type: "primary" }
+	}
 	if (!amount.value)
 		return {
 			text: "Type deposit amount",
 			disabled: true,
 			type: "secondary",
 		}
-	if (amount.value > 0 && amount.value < 0.01) return { text: "Minimum 0.01 TIA", disabled: true, type: "secondary" }
+	if (amount.value > 0 && amount.value < 0.01) return { text: "Minimum 0.01 XTZ", disabled: true, type: "secondary" }
 	if (amount.value > accountStore.balance)
 		return {
 			text: "Insufficient funds",
 			disabled: true,
 			type: "secondary",
 		}
+
+	if (amount.value > 0) {
+		const assets = ethers.parseUnits(amount.value.toString(), 18)
+		if (allowance.value < assets) {
+			return {
+				text: "Approve Assets",
+				disabled: false,
+				type: "primary",
+			}
+		}
+	}
+
 	return {
-		text: `Deposit to ${parsePoolName(props.selectedPool.name.replace("Juster Pool: ", ""))}`,
+		text: `Deposit to ${parsePoolName(props.selectedPool.name)}`,
 		disabled: false,
 		type: "primary",
 	}
@@ -195,7 +270,10 @@ watch(
 	() => props.show,
 	() => {
 		if (props.show) {
-			if (accountStore.isLoggined) accountStore.updateBalance()
+			if (accountStore.isLoggined) {
+				accountStore.updateBalance()
+				fetchAllowance()
+			}
 
 			initTiming()
 			timingInterval = setInterval(() => {
@@ -376,8 +454,8 @@ const onKeydown = (e) => {
 					</Tooltip>
 				</template>
 			</Input>
-
-			<Flex direction="column" gap="8">
+			
+						<Flex direction="column" gap="8">
 				<Flex align="center" justify="between">
 					<Text size="12" weight="600" color="secondary"> Deposit Details </Text>
 					<Text size="12" weight="600" color="support"> Approximate calculation </Text>
@@ -410,7 +488,7 @@ const onKeydown = (e) => {
 				</Flex>
 
 				<!-- Timing -->
-				<Flex align="center" justify="between" :class="$style.badge">
+				<!-- <Flex align="center" justify="between" :class="$style.badge">
 					<Flex align="center" gap="8">
 						<Icon name="plus_circle" size="14" color="tertiary" />
 
@@ -445,8 +523,56 @@ const onKeydown = (e) => {
 							</Text>
 						</Flex>
 					</Flex>
+				</Flex> -->
+			</Flex>
+
+			<!-- Transaction Progress -->
+			<Flex direction="column" :class="$style.progress_container">
+				<Flex align="center" justify="between">
+					<Text size="12" weight="600" color="secondary">Transaction Progress</Text>
+					<Flex align="center" gap="4">
+						<LoadingDots v-if="progressStatus === 'Processing'" size="12" />
+						<Text size="12" weight="600" color="support">
+							{{ progressStatus }}
+						</Text>
+					</Flex>
+				</Flex>
+
+				<Flex direction="column" gap="16" :class="$style.progress_steps">
+					<!-- Step 1 -->
+					<Flex align="center" gap="12">
+						<div :class="[$style.circle, allowance >= ethers.parseUnits((amount.value || 0).toString(), 18) ? $style.completed : isApproving ? $style.active : '']">
+							<Icon v-if="allowance >= ethers.parseUnits((amount.value).toString(), 18)" name="check" size="10" color="white" />
+							<span v-else>1</span>
+						</div>
+						<Flex direction="column" gap="4">
+							<Text size="14" weight="600" :color="allowance >= ethers.parseUnits((amount.value || 0).toString(), 18) ? 'primary' : 'secondary'">Approve Token</Text>
+							<a v-if="approveTxHash" :href="`${activeChainConfig.blockExplorerUrls[0]}/tx/${approveTxHash}`" target="_blank" :class="$style.tx_link">
+								{{ shorten(approveTxHash) }}
+								<Icon name="arrow-up-right" size="10" />
+							</a>
+						</Flex>
+					</Flex>
+
+					<div :class="$style.dashed_line" />
+
+					<!-- Step 2 -->
+					<Flex align="center" gap="12">
+						<div :class="[$style.circle, depositTxHash ? $style.completed : opConfirmationInProgress ? $style.active : '']">
+							<Icon v-if="depositTxHash" name="check" size="10" color="white" />
+							<span v-else>2</span>
+						</div>
+						<Flex direction="column" gap="4">
+							<Text size="14" weight="600" :color="depositTxHash ? 'primary' : 'secondary'">Deposit</Text>
+							<a v-if="depositTxHash" :href="`${activeChainConfig.blockExplorerUrls[0]}/tx/${depositTxHash}`" target="_blank" :class="$style.tx_link">
+								{{ shorten(depositTxHash) }}
+								<Icon name="arrow-up-right" size="10" />
+							</a>
+						</Flex>
+					</Flex>
 				</Flex>
 			</Flex>
+
 
 			<Flex direction="column" gap="12" align="center">
 				<Button
@@ -464,10 +590,6 @@ const onKeydown = (e) => {
 					</template>
 				</Button>
 
-				<Text size="12" weight="500" color="support" align="center" height="16" style="max-width: 400px">
-					Your position will not be accepted instantly, it takes time to confirm. You can track the status in the list of your
-					pools
-				</Text>
 			</Flex>
 		</Flex>
 	</Modal>
@@ -519,5 +641,67 @@ const onKeydown = (e) => {
 	height: 4px;
 	border-radius: 50%;
 	background: var(--text-support);
+}
+
+.progress_container {
+	overflow: hidden;
+}
+
+.progress_steps {
+	padding: 20px 16px;
+	position: relative;
+}
+
+.circle {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	border: 1.5px dashed rgba(255, 255, 255, 0.15);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--text-tertiary);
+	z-index: 2;
+	background: var(--app-bg);
+}
+
+.circle.active {
+	border: 1.5px solid var(--blue);
+	color: var(--blue);
+	box-shadow: 0 0 8px rgba(43, 107, 243, 0.3);
+}
+
+.circle.completed {
+	border: 1.5px solid var(--green);
+	background: var(--green);
+	color: white;
+}
+
+.dashed_line {
+	position: absolute;
+	top: 44px;
+	left: 27.5px;
+	bottom: 44px;
+	width: 1px;
+	border-left: 1.5px dashed rgba(255, 255, 255, 0.1);
+	z-index: 1;
+}
+
+.tx_link {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--blue);
+	text-decoration: none;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	opacity: 0.8;
+	transition: opacity 0.2s;
+}
+
+.tx_link:hover {
+	opacity: 1;
 }
 </style>

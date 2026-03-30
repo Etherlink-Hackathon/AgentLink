@@ -6,16 +6,19 @@ import VaultDeposit from "./VaultDeposit.vue"
 import VaultPersonalStats from "./VaultPersonalStats.vue"
 import VaultEarnings from "./VaultEarnings.vue"
 import VaultHistory from "./VaultHistory.vue"
-import VaultActivePools from "./VaultActivePools.vue"
+import AgentActivity from "./AgentActivity.vue"
 import VaultBaseLoading from "../../local/VaultCard/VaultBaseLoading.vue"
 import Breadcrumbs from "@ui/Breadcrumbs.vue"
 import Badge from "@ui/Badge.vue"
 import Button from "@ui/Button.vue"
+import DepositModal from "../../local/modals/pools/DepositModal.vue"
+import WithdrawClaimsModal from "../../local/modals/pools/WithdrawClaimsModal.vue"
 import { analytics } from "@sdk"
 import { fetchVaultById } from "@/api/vaults"
+import { fetchAgentLogs, fetchAgentTransactions } from "@/api/agent"
 
-const activePools = ref([])
 const liveLogs = ref([])
+const agentTransactions = ref([])
 
 const props = defineProps({
 	id: String,
@@ -24,6 +27,9 @@ const props = defineProps({
 const vault = ref(null)
 const isLoading = ref(true)
 const activeTab = ref("info") // info | position
+
+const showDepositModal = ref(false)
+const showWithdrawModal = ref(false)
 
 const breadcrumbs = computed(() => [
 	{ name: "Explore", path: "/explore" },
@@ -40,12 +46,12 @@ const mockPosition = computed(() => ({
 
 const fetchBackendData = async () => {
 	try {
-		const [poolsRes, logsRes] = await Promise.all([
-			fetch("http://localhost:3001/api/pools"),
-			fetch("http://localhost:3001/api/logs")
+		const [logs, txs] = await Promise.all([
+			fetchAgentLogs(),
+			fetchAgentTransactions()
 		])
-		activePools.value = await poolsRes.json()
-		liveLogs.value = await logsRes.json()
+		liveLogs.value = logs
+		agentTransactions.value = txs
 	} catch (error) {
 		console.error("Failed to fetch backend data:", error)
 	}
@@ -54,7 +60,7 @@ const fetchBackendData = async () => {
 onMounted(async () => {
 	analytics.log("onPage", { name: "VaultDetail", id: props.id })
 	try {
-		await new Promise(r => setTimeout(r, 5000)) // Artificial delay
+		await new Promise(r => setTimeout(r, 1000))
 		const data = await fetchVaultById(props.id)
 		vault.value = data
 		await fetchBackendData()
@@ -104,7 +110,7 @@ onMounted(async () => {
 						@click="activeTab = 'info'" 
 						:class="[$style.content_tab, activeTab === 'info' && $style.active]"
 					>
-						Vault Info
+						Vault Information
 					</div>
 					<div 
 						@click="activeTab = 'position'" 
@@ -121,22 +127,11 @@ onMounted(async () => {
 							<Flex direction="column" gap="24">
 								<VaultChart :vault="vault" />
 
-								<!-- Active Pools -->
-								<VaultActivePools :pools="activePools" />
-
-								<!-- Live Logs -->
-								<div :class="$style.card">
-									<Flex justify="between" :class="$style.card_header">
-										<Text size="14" weight="600" color="primary">Live Agent Execution Log</Text>
-										<Badge color="blue" size="small">Streaming</Badge>
-									</Flex>
-									<div :class="$style.logs">
-										<div v-for="(log, i) in liveLogs" :key="i" :class="$style.log_line">
-											<span :class="$style.log_time">{{ log.time }}</span>
-											<span :class="$style.log_msg">{{ log.msg }}</span>
-										</div>
-									</div>
-								</div>
+								<!-- Strategy Activity (Refactored) -->
+								<AgentActivity 
+									:logs="liveLogs" 
+									:transactions="agentTransactions"
+								/>
 							</Flex>
 						</template>
 
@@ -155,11 +150,33 @@ onMounted(async () => {
 					</div>
 
 					<div :class="$style.right">
-						<VaultDeposit :vault="vault" />
+						<VaultDeposit 
+							:vault="vault" 
+							@onDeposit="() => { showDepositModal = true }"
+							@onWithdraw="() => { showWithdrawModal = true }"
+						/>
 					</div>
 				</div>
 			</div>
 		</Flex>
+
+		<!-- Modals -->
+		<DepositModal 
+			v-if="vault"
+			:show="showDepositModal" 
+			:selectedPool="{ address: vault.address, name: vault.name, entryLockPeriod: 3600 }"
+			:state="{ totalLiquidity: 100, sharePrice: 1.05 }"
+			:apy="8.5"
+			@onClose="showDepositModal = false"
+		/>
+
+		<WithdrawClaimsModal 
+			v-if="vault"
+			:show="showWithdrawModal" 
+			:pool="{ address: vault.address, name: vault.name }"
+			:positions="[]"
+			@onClose="showWithdrawModal = false"
+		/>
 	</div>
 </template>
 

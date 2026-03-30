@@ -5,6 +5,9 @@ import {
   destroySubscription,
   initWithSigner,
   getContractAddresses,
+  initVaults,
+  approve,
+  getAllowance,
 } from "./flameWager"
 import analytics from "./analytics"
 
@@ -40,5 +43,8 @@ export {
   destroySubscription,
   getContractAddresses,
   initWithSigner,
+  initVaults,
   analytics,
+  approve,
+  getAllowance,
 }

@@ -2,7 +2,7 @@
 /**
  * Vendor
  */
-import { onMounted } from "vue"
+import { onBeforeMount, onMounted, watch } from "vue"
 
 /**
  * Styles
@@ -26,6 +26,14 @@ import Footer from "@base/Footer.vue"
 import Notifications from "@local/Notifications.vue"
 
 /**
+ * Services
+ */
+import { flameWager, initVaults, currentNetwork } from "@sdk"
+import { fetchVaults } from "@/api/vaults"
+// import { watchNetwork } from "@/services/network"
+
+
+/**
  * Store
  */
 import { useAccountStore } from "@store/account"
@@ -44,17 +52,31 @@ const accountStore = useAccountStore()
 const appStore = useAppStore()
 
 onMounted(async () => {
+	// watchNetwork()
+
 	document.addEventListener("keydown", (e) => {
 		if (e.key === "Enter") {
 			const { activeElement } = document
-			if (activeElement && activeElement.tagName && activeElement.tagName.toLowerCase() === "a") return
-			if (activeElement && typeof activeElement.click === 'function') activeElement.click()
+			if (activeElement.tagName.toLowerCase() === "a") return
+			activeElement.click()
 		}
 	})
-  
-  // Initialize account store (check for auto-connect)
-  await accountStore.init()
+
+	setupVaults()
 })
+
+/** Network Watcher */
+watch(
+	() => currentNetwork.value,
+	() => {
+		setupVaults()
+	},
+)
+
+const setupVaults = async () => {
+	marketStore.vaults = await fetchVaults()
+	initVaults(marketStore.vaults)
+}
 </script>
 
 <template>

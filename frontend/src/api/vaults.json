@@ -1,62 +1,11 @@
 [
   {
-    "address": "0x1111111111111111111111111111111111111111",
-    "name": "OpenClaw Alpha",
-    "token0": { "symbol": "ETH", "name": "Ethereum" },
-    "token1": { "symbol": "USDC", "name": "USD Coin" },
-    "dex": "V3Swap",
+    "address": "0x273cd6220280EaeD8d8269C786e8718FF2442593",
+    "name": "ArbitrageVault",
     "tvl": 1250000,
     "apy": 12.5,
     "revenue": 1450.25,
     "status": "active",
     "strategies": 4
-  },
-  {
-    "address": "0x2222222222222222222222222222222222222222",
-    "name": "CyberDex Arbitrage",
-    "token0": { "symbol": "WBTC", "name": "Wrapped Bitcoin" },
-    "token1": { "symbol": "USDT", "name": "Tether" },
-    "dex": "EtherlinkDex",
-    "tvl": 850000,
-    "apy": 14.2,
-    "revenue": 980.50,
-    "status": "active",
-    "strategies": 2
-  },
-  {
-    "address": "0x3333333333333333333333333333333333333333",
-    "name": "OmniBot V2",
-    "token0": { "symbol": "LINK", "name": "Chainlink" },
-    "token1": { "symbol": "ETH", "name": "Ethereum" },
-    "dex": "OmniPool",
-    "tvl": 450000,
-    "apy": 9.8,
-    "revenue": 420.10,
-    "status": "active",
-    "strategies": 3
-  },
-  {
-    "address": "0x4444444444444444444444444444444444444444",
-    "name": "OpenClaw Beta",
-    "token0": { "symbol": "TEZ", "name": "Tezos" },
-    "token1": { "symbol": "EETH", "name": "Etherlink ETH" },
-    "dex": "V3Swap",
-    "tvl": 320000,
-    "apy": 11.1,
-    "revenue": 310.80,
-    "status": "active",
-    "strategies": 5
-  },
-  {
-    "address": "0x5555555555555555555555555555555555555555",
-    "name": "SovereignNode #44",
-    "token0": { "symbol": "WETH", "name": "Wrapped ETH" },
-    "token1": { "symbol": "DAI", "name": "Dai" },
-    "dex": "EtherlinkDex",
-    "tvl": 1800000,
-    "apy": 18.5,
-    "revenue": 2100.40,
-    "status": "active",
-    "strategies": 6
   }
 ]

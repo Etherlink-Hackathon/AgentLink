@@ -9,6 +9,10 @@ const props = defineProps({
 		type: Array,
 		required: true,
 	},
+	mode: {
+		type: String,
+		default: "user", // user | agent
+	}
 })
 
 const itemsPerPage = 5
@@ -25,8 +29,10 @@ const paginatedHistory = computed(() => {
 const getTxTypeColor = (type) => {
 	switch (type.toLowerCase()) {
 		case "deposit":
+		case "arbitrage":
 			return "green"
 		case "withdraw request":
+		case "swap":
 			return "orange"
 		case "withdraw cancelled":
 			return "red"
@@ -48,6 +54,7 @@ const getExplorerUrl = (hash) => `https://explorer.etherlink.com/tx/${hash}`
 						<th>TIMESTAMP</th>
 						<th>TYPE</th>
 						<th>AMOUNT</th>
+						<th v-if="mode === 'agent'">PROFIT</th>
 						<th :class="$style.align_right">EXPLORER</th>
 					</tr>
 				</thead>
@@ -65,6 +72,11 @@ const getExplorerUrl = (hash) => `https://explorer.etherlink.com/tx/${hash}`
 						<td>
 							<Text size="13" weight="700" color="primary">{{ tx.amount }}</Text>
 						</td>
+						<td v-if="mode === 'agent'">
+							<Text size="13" weight="700" :color="tx.profit.startsWith('+') ? 'green' : (tx.profit.startsWith('-') ? 'red' : 'primary')">
+								{{ tx.profit }}
+							</Text>
+						</td>
 						<td :class="$style.align_right">
 							<a :href="getExplorerUrl(tx.hash)" target="_blank" :class="$style.explorer_link">
 								<Icon name="external" size="14" />
@@ -72,7 +84,7 @@ const getExplorerUrl = (hash) => `https://explorer.etherlink.com/tx/${hash}`
 						</td>
 					</tr>
 					<tr v-if="history.length === 0">
-						<td colspan="4" :class="$style.empty">
+						<td :colspan="mode === 'agent' ? 5 : 4" :class="$style.empty">
 							No transactions found
 						</td>
 					</tr>
