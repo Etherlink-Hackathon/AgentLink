@@ -1,4 +1,4 @@
-import readmeRaw from "../../../docs/README.md?raw"
+import overviewRaw from "../../../docs/OVERVIEW.md?raw"
 import agentRaw from "../../../docs/AGENT.md?raw"
 import dexPoolsRaw from "../../../docs/DEX_POOLS.md?raw"
 import securityRaw from "../../../docs/SECURITY.md?raw"
@@ -9,11 +9,11 @@ import lpVaultRaw from "../../../docs/LP_VAULT.md?raw"
 export const fetchPosts = async () => {
 	return [
 		{
-			_id: "readme",
+			_id: "overview",
 			title: "Project Overview",
-			slug: { current: "readme" },
+			slug: { current: "overview" },
 			icon: "package",
-			markdown: readmeRaw,
+			markdown: overviewRaw,
 			content: [],
 		},
 		{

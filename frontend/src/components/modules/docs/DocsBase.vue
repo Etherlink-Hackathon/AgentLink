@@ -116,7 +116,7 @@ watch(
 		const { slug } = route.params
 
 		if (!docsStore.post.slug) {
-			selectPost(allPosts.value.find((p) => p.slug.current === "readme"))
+			selectPost(allPosts.value.find((p) => p.slug.current === "overview"))
 		} else if (slug !== docsStore.post.slug.current) {
 			const newPost = allPosts.value.find((p) => slug === p.slug.current)
 			if (newPost) selectPost(newPost)
