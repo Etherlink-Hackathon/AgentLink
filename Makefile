@@ -1,6 +1,6 @@
 # Etherlink Arbitrage Vault — Global Management
 
-.PHONY: help install run-agent run-indexer clean
+.PHONY: help install run-indexer run-frontend test-contracts clean
 
 help: ## Show this help message
 	@echo 'Usage: make [TARGET]'
@@ -8,16 +8,21 @@ help: ## Show this help message
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-install: ## Install dependencies for agent and indexer
-	cd backend && npm install
-	cd backend-indexer && pip install -r requirements.txt
+install: ## Install dependencies for all sub-projects
+	cd indexer && pip install -r requirements.txt
+	cd frontend && npm install
+	cd contracts && npm install
 
-run-agent: ## Start the TypeScript arbitrage agent
-	cd backend && npm run dev
+run-indexer: ## Start the DipDup indexer and Python Agent
+	cd indexer && dipdup run
 
-run-indexer: ## Start the DipDup indexer
-	cd backend-indexer && dipdup run
+run-frontend: ## Start the Vue.js dashboard
+	cd frontend && npm run dev
 
-clean: ## Clean audit/build artifacts
-	rm -rf backend/dist backend/node_modules
-	rm -rf backend-indexer/__pycache__
+test-contracts: ## Run Hardhat tests for the vault contracts
+	cd contracts && npm run test
+
+clean: ## Clean build artifacts
+	rm -rf frontend/dist frontend/node_modules
+	rm -rf contracts/artifacts contracts/cache contracts/node_modules
+	find indexer -name "__pycache__" -exec rm -rf {} +

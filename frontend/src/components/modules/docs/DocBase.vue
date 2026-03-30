@@ -44,14 +44,23 @@ watch(
 )
 
 const createLinksStructure = () => {
-	links.value = docsStore.post.content
-		.filter((block) => block.style?.startsWith("h"))
-		.map((block) => {
-			return {
-				text: block.children[0].text,
-				level: block.style.replace("h", ""),
-			}
+	if (!docsStore.post.markdown) {
+		links.value = []
+		return
+	}
+
+	const headerRegex = /^(#{1,6})\s+(.*)$/gm
+	const foundLinks = []
+	let match
+
+	while ((match = headerRegex.exec(docsStore.post.markdown)) !== null) {
+		foundLinks.push({
+			level: match[1].length,
+			text: match[2].trim(),
 		})
+	}
+
+	links.value = foundLinks
 }
 
 /** Handle ArrowLeft / ArrowRight navigation */
@@ -131,116 +140,66 @@ const handlePrevPage = () => {
 
 <template>
 	<Flex :class="$style.wrapper">
-		<Flex direction="column" :class="$style.content">
-			<ArticleContent
-				v-if="docsStore.post.content"
-				:title="docsStore.post.title"
-				:content="docsStore.post.content"
-			/>
+		<div :class="$style.container">
+			<div :class="$style.content">
+				<ArticleContent
+					:title="docsStore.post.title"
+					:content="docsStore.post.content"
+					:markdown="docsStore.post.markdown"
+				/>
 
-			<Text
-				v-if="docsStore.post._updatedAt"
-				size="13"
-				weight="500"
-				color="support"
-			>
-				Last updated
-				{{
-					DateTime.fromISO(docsStore.post._updatedAt)
-						.setLocale("en")
-						.toFormat("FF")
-				}}
-			</Text>
-
-			<Flex
-				v-if="prevPost || nextPost"
-				align="center"
-				gap="32"
-				:class="$style.nav"
-			>
-				<Tooltip v-if="prevPost" isWide>
-					<Flex
-						@click="handlePrevPage"
-						align="center"
-						justify="between"
-						:class="$style.next_btn"
+				<Flex align="center" justify="between" :class="$style.navigation">
+					<router-link
+						v-if="prevPost"
+						:to="`/docs/${prevPost.slug.current}`"
+						:class="$style.nav_btn"
 					>
-						<Flex direction="column" gap="8">
-							<Text size="12" color="tertiary" weight="500">
-								Previous Page
-							</Text>
-							<Text size="14" color="primary" weight="500">{{
-								prevPost.title
-							}}</Text>
+						<Icon name="arrow" size="16" :style="{ transform: 'rotate(90deg)' }" />
+						<Flex direction="column" gap="4">
+							<Text size="12" weight="600" color="tertiary">Previous</Text>
+							<Text size="14" weight="600" color="primary">{{ prevPost.title }}</Text>
 						</Flex>
+					</router-link>
+					<div v-else />
 
-						<Icon name="arrowleft" size="16" color="tertiary" />
-					</Flex>
-
-					<template #content>
-						<span>Use</span>
-						{{ "<-" }}
-						<span> key to go back</span>
-					</template>
-				</Tooltip>
-
-				<Tooltip v-if="nextPost" isWide placement="bottom">
-					<Flex
-						@click="handleNextPage"
-						align="center"
-						justify="between"
-						:class="$style.next_btn"
+					<router-link
+						v-if="nextPost"
+						:to="`/docs/${nextPost.slug.current}`"
+						:class="[$style.nav_btn, $style.next]"
 					>
-						<Icon name="arrowright" size="16" color="tertiary" />
-
-						<Flex align="end" direction="column" gap="8">
-							<Text size="12" color="tertiary" weight="500">
-								Next Page
-							</Text>
-							<Text size="14" color="primary" weight="500">
-								{{ nextPost.title }}
-							</Text>
+						<Flex direction="column" align="end" gap="4">
+							<Text size="12" weight="600" color="tertiary">Next</Text>
+							<Text size="14" weight="600" color="primary">{{ nextPost.title }}</Text>
 						</Flex>
-					</Flex>
+						<Icon name="arrow" size="16" :style="{ transform: 'rotate(-90deg)' }" />
+					</router-link>
+				</Flex>
+			</div>
 
-					<template #content>
-						<span>Use</span>
-						->
-						<span> key to go forward</span>
-					</template>
-				</Tooltip>
-			</Flex>
-		</Flex>
-
-		<TableOfContents
-			v-if="docsStore.post.title && links.length"
-			:title="docsStore.post.title"
-			:links="links"
-		/>
+			<div :class="$style.toc_wrapper">
+				<TableOfContents :links="links" />
+			</div>
+		</div>
 	</Flex>
 </template>
 
 <style module>
-.content {
+.wrapper {
+	display: flex;
+	justify-content: center;
 	width: 100%;
-	max-width: 700px;
+	padding: 60px 40px;
 }
 
-.nav {
-	border-top: 1px solid var(--border);
-
-	margin-top: 24px;
-	padding-top: 24px;
+.container {
+	display: flex;
+	gap: 60px;
+	width: 100%;
+	max-width: 1200px;
 }
 
-.next_btn {
+.content {
 	flex: 1;
-	cursor: pointer;
-	border-radius: 8px;
-	border: 2px solid var(--border);
-	height: 68px;
-
-	padding: 0 16px;
 
 	transition: all 0.2s ease;
 }

@@ -1,27 +1,16 @@
 <script setup>
-/**
- * Vendor
- */
 import { ref, onBeforeMount } from "vue"
-
-/**
- * Services
- */
-import { initHighlighter } from "@/services/shiki"
 
 const props = defineProps({
 	code: Object,
 	title: String,
 })
 
-const hl = ref({})
 const result = ref("")
 
-onBeforeMount(async () => {
-	hl.value = await initHighlighter()
-
-	const { code, language } = props.code
-	result.value = hl.value.codeToHtml(code, { lang: language })
+onBeforeMount(() => {
+	const { code } = props.code
+	result.value = `<pre><code>${code}</code></pre>`
 })
 </script>
 

@@ -17,16 +17,16 @@ const emit = defineEmits("onClick")
 
 const browseLinks = ref([
 	{
-		icon: "compass",
-		title: "Explore",
-		description: "Opportunities and insights",
-		url: "/explore",
-	},
-	{
 		icon: "package",
 		title: "Vaults",
 		description: "Managed arbitrage strategies",
 		url: "/vaults",
+	},
+	{
+		icon: "money",
+		title: "My Vault",
+		description: "Your vaults and positions",
+		url: "/my-vault",
 	},
 ])
 
@@ -101,7 +101,7 @@ watch(
 					activeLink === 'Community' && $style.right,
 				]"
 			>
-				<template v-if="activeLink === 'Explore' || activeLink === 'Vaults'">
+				<template v-if="activeLink === 'Vaults'">
 					<Flex :class="$style.base">
 						<Flex direction="column" gap="24" :class="$style.column">
 							<div :class="$style.atlas_block">

@@ -58,14 +58,7 @@ const generateHref = (text) => {
 <style module>
 .wrapper {
 	position: relative;
-	min-width: 200px;
-	flex-grow: 1;
-
-	padding-left: 70px;
-}
-
-.wrapper * {
-	white-space: nowrap;
+	width: 100%;
 }
 
 .base {
@@ -73,23 +66,17 @@ const generateHref = (text) => {
 	flex-direction: column;
 	gap: 20px;
 
-	opacity: 0.4;
-
 	position: sticky;
 	top: 130px;
-
-	transition: opacity 0.2s ease;
-}
-
-.wrapper:hover .base {
-	opacity: 1;
 }
 
 .label {
-	font-size: 14px;
-	line-height: 1;
-	font-weight: 600;
-	color: var(--text-secondary);
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--text-tertiary);
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	margin-bottom: 8px;
 }
 
 .wrapper ul {
@@ -99,29 +86,30 @@ const generateHref = (text) => {
 	padding-inline-start: 0px;
 	list-style-type: none;
 
-	margin: 8px 0 8px 0;
+	margin: 0;
 }
 
 .wrapper li {
-	font-size: 14px;
-	line-height: 1;
-	font-weight: 500;
-	color: var(--text-tertiary);
-
 	display: block;
 	overflow: hidden;
 	text-overflow: ellipsis;
-
-	transition: color 0.2s ease;
-}
-
-.wrapper li:hover {
-	color: var(--text-secondary);
 }
 
 .wrapper li a {
 	display: flex;
-	padding: 8px 0;
+	padding: 6px 0;
+	font-size: 13px;
+	line-height: 1.4;
+	font-weight: 500;
+	color: var(--text-secondary);
+	text-decoration: none;
+	transition: all 0.2s ease;
+	white-space: normal;
+}
+
+.wrapper li a:hover {
+	color: var(--brand);
+	transform: translateX(4px);
 }
 
 .mobile_arrow {

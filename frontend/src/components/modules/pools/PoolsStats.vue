@@ -4,7 +4,7 @@
  */
 import { computed } from "vue"
 import BN from "bignumber.js"
-
+import { activeChainConfig } from "@/services/config"
 /**
  * UI
  */
@@ -215,7 +215,7 @@ const apy = computed(() => {
 		>
 			<Flex align="center" gap="6" :class="$style.stat__values">
 				<Text v-if="isReady" size="16" weight="600" color="primary">
-					{{ pools[0].activeLiquidity ? numberWithSymbol(pools[0].activeLiquidity, ",") : 0 }} ETH
+					{{ pools[0].activeLiquidity ? numberWithSymbol(pools[0].activeLiquidity, ",") : 0 }} {{activeChainConfig.nativeCurrency.symbol}}
 				</Text>
 				<LoadingDots v-else :class="$style.dots_anim" />
 			</Flex>
@@ -239,7 +239,7 @@ const apy = computed(() => {
 		>
 			<Flex align="center" gap="6" :class="$style.stat__values">
 				<Text v-if="isReady" size="16" weight="600" color="primary">
-					{{ pools[0].withdrawableLiquidity ? numberWithSymbol(pools[0].withdrawableLiquidity, ",") : 0 }} ETH
+					{{ pools[0].withdrawableLiquidity ? numberWithSymbol(pools[0].withdrawableLiquidity, ",") : 0 }} {{activeChainConfig.nativeCurrency.symbol}}
 				</Text>
 				<LoadingDots v-else :class="$style.dots_anim" />
 			</Flex>

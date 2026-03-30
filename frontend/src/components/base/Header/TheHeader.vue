@@ -44,8 +44,8 @@ const links = reactive([
 		icon: "package",
 	},
 	{
-		name: "Docs",
-		url: "/docs",
+		name: "Resources",
+		url: "/resources",
 		icon: "package",
 	},
 ])

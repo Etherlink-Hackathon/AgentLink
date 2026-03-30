@@ -109,7 +109,7 @@ const handleLogout = () => {
 											",",
 										)
 									}}&nbsp;
-									<Text color="tertiary">{{activeChainConfig.nativeCurrency?.symbol || 'ETH'}}</Text>
+									<Text color="tertiary">{{activeChainConfig.nativeCurrency?.symbol}}</Text>
 								</Flex>
 							</Text>
 							<Text size="11" weight="600" color="tertiary">

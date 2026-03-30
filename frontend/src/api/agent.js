@@ -16,24 +16,33 @@ const LOGS_MOCK = [
 
 const TXS_MOCK = [
     { 
-        timestamp: "Mar 30, 2026 10:42 AM", 
-        type: "Arbitrage", 
-        amount: "500.00 WXTZ", 
+        time: "3/30/2026 - 14:52:23", 
+        type: "Limit", 
+        pair: "XTZ / WETH",
+        dex: "Curve",
+        direction: "Sell",
+        size: "1,113.6155 XTZ", 
         profit: "+12.42 USDC",
         hash: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e" 
     },
     { 
-        timestamp: "Mar 30, 2026 09:15 AM", 
-        type: "Arbitrage", 
-        amount: "1,200.00 WXTZ", 
+        time: "3/30/2026 - 14:49:22", 
+        type: "Limit", 
+        pair: "WBTC / XTZ",
+        dex: "Oku Trade",
+        direction: "Buy",
+        size: "0.00943755 WBTC", 
         profit: "+28.15 USDC",
         hash: "0x89221f1912252a3b844Bc454e4438f44e12345678" 
     },
     { 
-        timestamp: "Mar 30, 2026 08:05 AM", 
-        type: "Swap", 
-        amount: "250.00 WXTZ", 
-        profit: "-0.50 USDC (Slippage)",
+        time: "3/30/2026 - 14:45:49", 
+        type: "Limit", 
+        pair: "stXTZ / WXTZ",
+        dex: "Curve",
+        direction: "Buy",
+        size: "250.00 WXTZ", 
+        profit: "-0.50 USDC",
         hash: "0xabcdef1234567890abcdef1234567890abcdef12" 
     },
 ]

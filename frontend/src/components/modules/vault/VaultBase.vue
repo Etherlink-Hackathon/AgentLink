@@ -16,6 +16,7 @@ import WithdrawClaimsModal from "../../local/modals/pools/WithdrawClaimsModal.vu
 import { analytics } from "@sdk"
 import { fetchVaultById } from "@/api/vaults"
 import { fetchAgentLogs, fetchAgentTransactions } from "@/api/agent"
+import { activeChainConfig } from "@/services/config"
 
 const liveLogs = ref([])
 const agentTransactions = ref([])
@@ -41,7 +42,7 @@ const mockPosition = computed(() => ({
 	tvl: 3.25,
 	returning: 3.37,
 	potential: 0.12,
-	symbol: vault.value?.token1?.symbol || "ETH"
+	symbol: vault.value?.token1?.symbol || activeChainConfig.nativeCurrency.symbol
 }))
 
 const fetchBackendData = async () => {

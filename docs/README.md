@@ -1,5 +1,3 @@
-# Etherlink Omni-DEX Arbitrage Agent
-
 ## Overview
 
 The **Etherlink Omni-DEX Arbitrage Agent** is a full-stack automated DeFi trading system powered by the [OpenClaw](https://openclaw.ai) framework and protected by an **ERC-4626 Vault**.

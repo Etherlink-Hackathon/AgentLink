@@ -10,6 +10,8 @@ import { useAccountStore } from "@store/account"
 const Explore = () => import('../views/Home.vue')
 const Vaults = () => import('../views/VaultsPage.vue')
 const VaultPage = () => import('../views/VaultPage.vue')
+const DocsBase = () => import('../components/modules/docs/DocsBase.vue')
+const DocBase = () => import('../components/modules/docs/DocBase.vue')
 
 const routes = [
   {
@@ -33,22 +35,38 @@ const routes = [
     component: VaultPage,
     props: true
   },
+  {
+    path: '/docs',
+    component: DocsBase,
+    children: [
+      {
+        path: '',
+        name: 'Docs',
+        component: DocBase
+      },
+      {
+        path: ':slug',
+        name: 'Doc',
+        component: DocBase
+      }
+    ]
+  },
 ]
 
 const router = createRouter({
-	history: createWebHistory(import.meta.env.BASE_URL),
-	routes,
-	scrollBehavior() {
-		return { top: 0 }
-	},
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes,
+  scrollBehavior() {
+    return { top: 0 }
+  },
 })
 
 router.beforeEach((target, prev, next) => {
-	const appStore = useAppStore()
+  const appStore = useAppStore()
 
-	if (prev.name) appStore.prevRoute = prev
+  if (prev.name) appStore.prevRoute = prev
 
-	next()
+  next()
 })
 
 export default router 

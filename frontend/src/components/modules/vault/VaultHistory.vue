@@ -9,31 +9,31 @@ const props = defineProps({
 const mockHistory = [
 	{ 
 		type: "Deposit", 
-		amount: "1.50 ETH", 
+		amount: "1.50 XTZ", 
 		timestamp: "Nov 23, 2025 10:42 AM", 
 		hash: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e" 
 	},
 	{ 
 		type: "Withdraw Request", 
-		amount: "0.25 ETH", 
+		amount: "0.25 XTZ", 
 		timestamp: "Nov 21, 2025 02:15 PM", 
 		hash: "0x89221f1912252a3b844Bc454e4438f44e12345678" 
 	},
 	{ 
 		type: "Deposit", 
-		amount: "2.00 ETH", 
+		amount: "2.00 XTZ", 
 		timestamp: "Nov 19, 2025 09:30 AM", 
 		hash: "0x1234567890abcdef1234567890abcdef12345678" 
 	},
 	{ 
 		type: "Withdraw Cancelled", 
-		amount: "0.50 ETH", 
+		amount: "0.50 XTZ", 
 		timestamp: "Nov 17, 2025 08:05 PM", 
 		hash: "0xabcdef1234567890abcdef1234567890abcdef12" 
 	},
 	{ 
 		type: "Deposit", 
-		amount: "1.00 ETH", 
+		amount: "1.00 XTZ", 
 		timestamp: "Nov 15, 2025 11:20 AM", 
 		hash: "0x9876543210fedcba9876543210fedcba98765432" 
 	},

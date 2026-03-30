@@ -8,7 +8,7 @@ import { useRoute, useRouter } from "vue-router"
 /**
  * API
  */
-import { fetchPosts, fetchSections } from "@/api/sanity"
+import { fetchPosts, fetchSections } from "@/api/sanity.js"
 
 /**
  * UI
@@ -116,7 +116,7 @@ watch(
 		const { slug } = route.params
 
 		if (!docsStore.post.slug) {
-			selectPost(allPosts.value.find((p) => p.slug.current === "discover"))
+			selectPost(allPosts.value.find((p) => p.slug.current === "readme"))
 		} else if (slug !== docsStore.post.slug.current) {
 			const newPost = allPosts.value.find((p) => slug === p.slug.current)
 			if (newPost) selectPost(newPost)
@@ -155,7 +155,7 @@ const selectPost = (post) => {
 						<router-link
 							v-for="post in section"
 							:key="post._id"
-							:to="post.slug.current"
+							:to="`/docs/${post.slug.current}`"
 							:class="[$style.link, docsStore.post == post && $style.active]"
 						>
 							<Flex align="center" gap="8">
@@ -210,11 +210,12 @@ const selectPost = (post) => {
 }
 
 .nav {
-	width: 200px;
-	min-height: 100vh;
-
-	padding-top: 50px;
+	width: 240px;
+	min-height: calc(100vh - 80px);
+	padding: 40px 24px;
 	background: var(--app-bg);
+	border-right: 1px solid var(--border);
+	flex-shrink: 0;
 }
 
 .general_links {
@@ -250,11 +251,13 @@ const selectPost = (post) => {
 
 .general_link.active {
 	color: var(--text-primary);
+	background: var(--opacity-05);
 }
 
 .general_link.active .icon {
 	background: var(--brand);
 	fill: var(--text-black);
+	box-shadow: 0 0 12px var(--brand);
 }
 
 .general_link .icon {
@@ -288,22 +291,23 @@ const selectPost = (post) => {
 	display: flex;
 	align-items: center;
 
-	font-size: 14px;
+	font-size: 13px;
 	line-height: 1;
 	font-weight: 500;
 	color: var(--text-tertiary);
 
 	cursor: pointer;
-	padding: 0 10px;
-	margin-left: -10px;
-	height: 34px;
-	border-radius: 5px;
+	padding: 0 12px;
+	margin-left: -12px;
+	height: 32px;
+	border-radius: 6px;
 
 	transition: all 0.2s ease;
 }
 
 .link:hover {
 	color: var(--text-secondary);
+	background: var(--opacity-03);
 }
 
 .link:focus-visible {

@@ -100,7 +100,7 @@ const handleDeposit = async () => {
 
 	try {
 		const vaultAddress = props.selectedPool.address
-		const assets = ethers.parseUnits(amount.value.toString(), 18)
+		const assets = ethers.parseUnits((amount.value || 0).toString(), 18)
 
 		// 1. Approve Token
 		if (allowance.value < assets) {
@@ -216,7 +216,7 @@ const buttonState = computed(() => {
 		}
 
 	if (amount.value > 0) {
-		const assets = ethers.parseUnits(amount.value.toString(), 18)
+		const assets = ethers.parseUnits((amount.value || 0).toString(), 18)
 		if (allowance.value < assets) {
 			return {
 				text: "Approve Assets",
@@ -542,7 +542,7 @@ const onKeydown = (e) => {
 					<!-- Step 1 -->
 					<Flex align="center" gap="12">
 						<div :class="[$style.circle, allowance >= ethers.parseUnits((amount.value || 0).toString(), 18) ? $style.completed : isApproving ? $style.active : '']">
-							<Icon v-if="allowance >= ethers.parseUnits((amount.value).toString(), 18)" name="check" size="10" color="white" />
+							<Icon v-if="allowance >= ethers.parseUnits((amount.value || 0).toString(), 18)" name="check" size="10" color="white" />
 							<span v-else>1</span>
 						</div>
 						<Flex direction="column" gap="4">

@@ -74,8 +74,8 @@ watch(
 )
 
 const setupVaults = async () => {
-	marketStore.vaults = await fetchVaults()
-	initVaults(marketStore.vaults)
+	const vaults = await fetchVaults()
+	initVaults(vaults)
 }
 </script>
 
