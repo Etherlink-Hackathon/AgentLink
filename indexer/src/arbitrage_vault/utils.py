@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import os
 from typing import Any
 
 import httpx
@@ -7,6 +9,152 @@ from web3 import Web3
 logger = logging.getLogger(__name__)
 
 GECKO_API_BASE = 'https://api.geckoterminal.com/api/v2'
+
+# ─── Minimal ABIs for on-chain metadata ──────────────────────────────────────
+
+_ERC20_ABI = [
+    {'inputs': [], 'name': 'name', 'outputs': [{'type': 'string'}], 'stateMutability': 'view', 'type': 'function'},
+    {'inputs': [], 'name': 'symbol', 'outputs': [{'type': 'string'}], 'stateMutability': 'view', 'type': 'function'},
+    {'inputs': [], 'name': 'decimals', 'outputs': [{'type': 'uint8'}], 'stateMutability': 'view', 'type': 'function'},
+]
+
+
+def _get_w3() -> Web3:
+    rpc_url = os.environ.get('RPC_URL', 'https://node.mainnet.etherlink.com')
+    return Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 10}))
+
+
+def _fetch_token_metadata_sync(address: str) -> dict[str, Any]:
+    """Synchronous ERC-20 metadata fetch. Runs in a thread executor."""
+    w3 = _get_w3()
+    checksum = w3.to_checksum_address(address)
+    contract = w3.eth.contract(address=checksum, abi=_ERC20_ABI)
+    result: dict[str, Any] = {}
+    for field in ('name', 'symbol', 'decimals'):
+        try:
+            result[field] = contract.functions[field]().call()
+        except Exception as exc:
+            logger.debug('on-chain %s() failed for %s: %s', field, address, exc)
+            result[field] = None
+    return result
+
+
+async def fetch_token_metadata(address: str) -> dict[str, Any]:
+    """
+    Fetch ERC-20 name / symbol / decimals from the chain.
+    Returns a dict with keys 'name', 'symbol', 'decimals'.
+    Any field that fails the RPC call is returned as None.
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _fetch_token_metadata_sync, address)
+
+
+_POOL_METADATA_ABI = [
+    {'inputs': [], 'name': 'name', 'outputs': [{'type': 'string'}], 'stateMutability': 'view', 'type': 'function'},
+    {'inputs': [], 'name': 'symbol', 'outputs': [{'type': 'string'}], 'stateMutability': 'view', 'type': 'function'},
+    {'inputs': [], 'name': 'token0', 'outputs': [{'type': 'address'}], 'stateMutability': 'view', 'type': 'function'},
+    {'inputs': [], 'name': 'token1', 'outputs': [{'type': 'address'}], 'stateMutability': 'view', 'type': 'function'},
+    {'inputs': [], 'name': 'fee', 'outputs': [{'type': 'uint24'}], 'stateMutability': 'view', 'type': 'function'},
+    {
+        'inputs': [{'type': 'uint256'}],
+        'name': 'coins',
+        'outputs': [{'type': 'address'}],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+]
+
+
+def _fetch_pool_metadata_sync(pool_address: str) -> dict[str, Any]:
+    """Try on-chain calls for name, symbol, token0, token1, fee."""
+    w3 = _get_w3()
+    checksum = w3.to_checksum_address(pool_address)
+    contract = w3.eth.contract(address=checksum, abi=_POOL_METADATA_ABI)
+    result = {'name': None, 'symbol': None, 'token0': None, 'token1': None, 'fee': None}
+
+    for field in ('name', 'symbol', 'token0', 'token1', 'fee'):
+        try:
+            result[field] = contract.functions[field]().call()
+        except Exception:
+            pass
+
+    # Fallback for Curve coins(0)/coins(1)
+    if not result['token0']:
+        try:
+            result['token0'] = contract.functions.coins(0).call()
+            result['token1'] = contract.functions.coins(1).call()
+        except Exception:
+            pass
+
+    return result
+
+
+async def fetch_pool_metadata(pool_address: str) -> dict[str, Any]:
+    """
+    Resolve a human-readable name and token addresses for a DEX pool.
+    Returns: {'name': str, 'token0': str|None, 'token1': str|None}
+    """
+    res = {'name': None, 'token0': None, 'token1': None}
+
+    # --- 1. GeckoTerminal ---
+    url = f'{GECKO_API_BASE}/networks/etherlink/pools/{pool_address.lower()}?include=dex'
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(url, headers={'Accept': 'application/json;version=20230302'})
+            if resp.status_code == 200:
+                data = resp.json()
+                attrs = data.get('data', {}).get('attributes', {})
+                pool_label: str | None = attrs.get('name')
+
+                rel = data.get('data', {}).get('relationships', {})
+                t0_id = rel.get('base_token', {}).get('data', {}).get('id', '')
+                t1_id = rel.get('quote_token', {}).get('data', {}).get('id', '')
+                if t0_id.startswith('etherlink_'):
+                    res['token0'] = t0_id.split('_')[1]
+                if t1_id.startswith('etherlink_'):
+                    res['token1'] = t1_id.split('_')[1]
+
+                dex_name = None
+                included = data.get('included', [])
+                for item in included:
+                    if item.get('type') == 'dex':
+                        dex_name = item.get('attributes', {}).get('name')
+                        break
+
+                if not dex_name:
+                    dex_id = rel.get('dex', {}).get('data', {}).get('id', '')
+                    dex_name = dex_id.replace('etherlink', '').replace('-', ' ').replace('_', ' ').strip().title()
+
+                if pool_label:
+                    res['name'] = f'{dex_name} — {pool_label}' if dex_name else pool_label
+                    return res
+    except Exception as exc:
+        logger.debug('GeckoTerminal metadata lookup failed: %s', exc)
+
+    # --- 2. on-chain fallbacks ---
+    loop = asyncio.get_event_loop()
+    on_chain = await loop.run_in_executor(None, _fetch_pool_metadata_sync, pool_address)
+    res['token0'] = on_chain['token0'] or res['token0']
+    res['token1'] = on_chain['token1'] or res['token1']
+
+    # Try to construct a name if missing
+    name = on_chain['name'] or on_chain['symbol']
+    if not name and res['token0'] and res['token1']:
+        # Fetch token symbols for a better fallback
+        t0_meta = await fetch_token_metadata(res['token0'])
+        t1_meta = await fetch_token_metadata(res['token1'])
+        t0_sym = t0_meta['symbol'] or res['token0'][:6]
+        t1_sym = t1_meta['symbol'] or res['token1'][:6]
+
+        fee_suffix = ''
+        if on_chain['fee'] is not None:
+            # fee is in hundredths of a basis point (e.g. 3000 = 0.3%)
+            fee_suffix = f' — {on_chain["fee"] / 10000}%'
+
+        name = f'Uniswap V3 — {t0_sym}/{t1_sym}{fee_suffix}' if on_chain['fee'] else f'{t0_sym}/{t1_sym}'
+
+    res['name'] = name or f'Pool {pool_address[:8]}'
+    return res
 
 
 async def get_xtz_price() -> float:

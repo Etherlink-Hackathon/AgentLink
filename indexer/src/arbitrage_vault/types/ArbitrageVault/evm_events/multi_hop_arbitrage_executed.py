@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 class MultiHopArbitrageExecutedPayload(BaseModel):
     strategist: str
-    route: str
-    pools: str
+    route: list[str]
+    pools: list[str]
     hops: int
     profit: int
