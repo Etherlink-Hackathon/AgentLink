@@ -10,7 +10,7 @@ database:
   database: ${POSTGRES_DB:-huydo}
 
 hasura:
-  url: http://hasura:8181
+  url: http://hasura:8080
   admin_secret: ${ADMIN_SECRET:-huydo2105}
   select_limit: ${SELECT_LIMIT:-1000}
   camel_case: true
@@ -19,13 +19,13 @@ hasura:
 
 contracts:
   vault:
-    address: 0x273cd6220280EaeD8d8269C786e8718FF2442593
+    address: 0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d
     typename: ArbitrageVault
 
 datasources:
   subsquid:
     kind: evm.subsquid
-    url: ${SUBSQUID_URL:-https://portal.sqd.dev/datasets/etherlink-mainnet}
+    url: ${SUBSQUID_URL:-https://v2.archive.subsquid.io/network/etherlink-mainnet}
   etherscan:
     kind: evm.etherscan
     url: ${ETHERSCAN_URL:-https://api.etherscan.io/v2/api?chainId=42793}
@@ -45,19 +45,23 @@ indexes:
   vault_events:
     kind: evm.events
     datasources:
-      - subsquid
       - etherscan
       - evm_node
+      - subsquid
     handlers:
-      - callback: on_arbitrage_executed
+      - callback: on_multi_hop_arbitrage_executed
         contract: vault
-        name: ArbitrageExecuted
+        name: MultiHopArbitrageExecuted
+      - callback: on_dex_whitelisted
+        contract: vault
+        name: DexWhitelisted
       - callback: on_deposit
         contract: vault
         name: Deposit
       - callback: on_withdraw
         contract: vault
         name: Withdraw
+    first_level: 41517933
 
 hooks:
   run_arbitrage:
@@ -70,7 +74,7 @@ hooks:
 jobs:
   arbitrage_cycle:
     hook: run_arbitrage
-    crontab: "* * * * *" # Every minute
+    crontab: "* * * * 3" # Every 3 minutes
     args:
-      vault_address: 0x273cd6220280EaeD8d8269C786e8718FF2442593
+      vault_address: "0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d"
       min_profit_usd: 0

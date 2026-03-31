@@ -11,6 +11,9 @@ from web3 import Web3
 
 logger = logging.getLogger(__name__)
 
+# Set to store references to background tasks to prevent garbage collection (RUF006)
+_background_tasks = set()
+
 
 class AgentExecutor:
     _instance = None
@@ -100,22 +103,32 @@ class AgentExecutor:
 
 async def on_synchronized(ctx: HookContext):
     """
-    Long-running background task for LISTEN/NOTIFY.
+    Starts a long-running background task for LISTEN/NOTIFY or high-frequency polling.
     """
     executor = AgentExecutor.get_instance()
 
-    # Simple polling for now as DipDup doesn't expose raw asyncpg listener easily in hooks
-    # In a full Postgres setup, we would use conn.add_listener
-    logger.info('📡 Agent Executor Listener started')
-    while True:
-        try:
-            # Check for EXECUTE status rows
-            pending = await AgentDecision.filter(status='EXECUTE').all()
-            for decision in pending:
-                await executor.process_decision(decision.id)
+    async def _listener_loop():
+        # Simple polling for now as DipDup doesn't expose raw asyncpg listener easily in hooks
+        # In a full Postgres setup, we would use conn.add_listener
+        logger.info('📡 Agent Executor Listener started in background')
+        while True:
+            try:
+                # Check for EXECUTE status rows
+                pending = await AgentDecision.filter(status='EXECUTE').all()
+                for decision in pending:
+                    await executor.process_decision(decision.id)
 
-            await asyncio.sleep(1)  # Near-zero latency polling if NOTIFY is hard to wire
+                await asyncio.sleep(1)  # Near-zero latency polling
 
-        except Exception as e:
-            logger.error('⚠️ Listener error: %s', e)
-            await asyncio.sleep(1)  # Wait and continue
+            except Exception as e:
+                logger.error('⚠️ Listener error: %s', e)
+                await asyncio.sleep(1)
+
+    # Start the loop in the background and let the hook finish
+    task = asyncio.create_task(_listener_loop())
+
+    # Add to set to prevent GC (RUF006)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+    logger.info('✅ Hook on_synchronized completed, listener task handed over to background.')

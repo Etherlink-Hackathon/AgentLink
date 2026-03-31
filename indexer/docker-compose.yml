@@ -20,7 +20,7 @@ services:
       - ETHERSCAN_URL=${ETHERSCAN_URL:-https://api.etherscan.io/v2/api?chainId=}
       - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-XYPSYD24WG49NSWHWCF9VE9HNKF21Z2KM2}
       - RPC_URL=${RPC_URL:-https://node.mainnet.etherlink.com}
-      - SUBSQUID_URL=${SUBSQUID_URL:-https://portal.sqd.dev/datasets/etherlink-mainnet}
+      - SUBSQUID_URL=${SUBSQUID_URL:-https://v2.archive.subsquid.io/network/etherlink-mainnet}
       - ORACLE_ADDRESS=${ORACLE_ADDRESS:-}
       - WAGER_ADDRESS=${WAGER_ADDRESS:-}
       - POOL_ADDRESS=${POOL_ADDRESS:-}
@@ -35,9 +35,9 @@ services:
     volumes:
       - db:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=huydo
-      - POSTGRES_DB=huydo
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_USER=${POSTGRES_USER:-huydo}
+      - POSTGRES_DB=${POSTGRES_DB:-huydo}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-huydo2105}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U huydo -d huydo"]
       interval: 5s
@@ -50,7 +50,7 @@ services:
   hasura:
     image: hasura/graphql-engine:v2.35.0
     ports:
-      - 8181:8181
+      - 8181:8080
     depends_on:
       db:
         condition: service_healthy
@@ -58,7 +58,7 @@ services:
     networks:
       - default
     environment:
-      - HASURA_GRAPHQL_DATABASE_URL=postgres://huydo:${POSTGRES_PASSWORD:-changeme}@db:5432/huydo
+      - HASURA_GRAPHQL_DATABASE_URL=postgres://${POSTGRES_USER:-huydo}:${POSTGRES_PASSWORD:-huydo2105}@db:5432/${POSTGRES_DB:-huydo}
       - HASURA_GRAPHQL_ENABLE_CONSOLE=true
       - HASURA_GRAPHQL_DEV_MODE=true
       - HASURA_GRAPHQL_ENABLED_LOG_TYPES=startup, http-log, webhook-log, websocket-log, query-log

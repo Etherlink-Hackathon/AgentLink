@@ -38,16 +38,11 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
     // Mapping of whitelisted DEX routers/pools
     mapping(address => bool) public whitelistedDexes;
 
-    event ArbitrageExecuted(
-        address indexed strategist,
-        address indexed dexBuy,
-        address indexed dexSell,
-        address tokenTrade,
-        uint256 profit
-    );
 
     event MultiHopArbitrageExecuted(
         address indexed strategist,
+        address[] route,
+        address[] pools,
         uint256 hops,
         uint256 profit
     );
@@ -111,6 +106,9 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
         require(steps[steps.length - 1].tokenOut == baseAsset, "Must end with base asset");
 
         uint256 currentAmount = amountIn;
+        address[] memory route = new address[](steps.length + 1);
+        address[] memory pools = new address[](steps.length);
+        route[0] = steps[0].tokenIn;
 
         for (uint256 i = 0; i < steps.length; i++) {
             SwapStep memory step = steps[i];
@@ -130,13 +128,17 @@ contract ArbitrageVault is ERC4626, AccessControl, ReentrancyGuard {
                 currentAmount,
                 step.data
             );
+
+            // Record route and pools
+            route[i + 1] = step.tokenOut;
+            pools[i] = step.dex;
         }
 
         uint256 finalAssets = totalAssets();
         require(finalAssets >= initialAssets + minExpectedProfit || isTestMode, "Arbitrage Unprofitable");
 
         uint256 profit = finalAssets > initialAssets ? finalAssets - initialAssets : 0;
-        emit MultiHopArbitrageExecuted(msg.sender, steps.length, profit);
+        emit MultiHopArbitrageExecuted(msg.sender, route, pools, steps.length, profit);
     }
     
     /**

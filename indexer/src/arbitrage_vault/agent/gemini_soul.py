@@ -4,8 +4,9 @@ import logging
 import os
 from typing import Any
 
-import google.generativeai as genai
 from eth_abi import encode as abi_encode
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +45,13 @@ class GeminiSoul:
     def __init__(self):
         self.api_key = os.getenv('GEMINI_API_KEY')
         if self.api_key:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel('gemini-3-flash')
+            # New SDK uses Client object
+            self.client = genai.Client(api_key=self.api_key)
+            self.model_id = 'gemini-2.0-flash'
 
     async def review(self, opportunity: dict[str, Any]) -> dict[str, Any] | None:
         """
-        Call Gemini 1.5 Flash for a high-speed strategic review using the Google SDK.
+        Call Gemini for a high-speed strategic review using the Google SDK.
         """
         if not self.api_key:
             logger.warning('GEMINI_API_KEY not set. Skipping AI review.')
@@ -58,16 +60,16 @@ class GeminiSoul:
         prompt = PROMPT_TEMPLATE.format(opp_json=json.dumps(opportunity, indent=2))
 
         try:
-            # Wrap the blocking generate_content call or use the async version
-            # We enforce the 1s timeout as requested by the user
+            # Use the new async client syntax (aio)
             response = await asyncio.wait_for(
-                self.model.generate_content_async(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
+                self.client.aio.models.generate_content(
+                    model=self.model_id,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
                         response_mime_type='application/json',
                     ),
                 ),
-                timeout=1.0,
+                timeout=1.2,  # Slightly more buffer for the new client
             )
 
             if response.text:
@@ -75,7 +77,7 @@ class GeminiSoul:
             return None
 
         except TimeoutError:
-            logger.warning('Gemini API review timed out after 1s. Falling back to heuristics.')
+            logger.warning('Gemini API review timed out after 1.2s. Falling back to heuristics.')
             return None
         except Exception as e:
             logger.error('Gemini SDK Error: %s', e)

@@ -35,9 +35,11 @@ class AgentExecution(Model):
     # Link to the decision that triggered this execution
     decision = fields.ForeignKeyField('models.AgentDecision', related_name='executions', null=True)
     strategist = fields.CharField(max_length=42, index=True)
-    dex_buy = fields.ForeignKeyField('models.DexPool', related_name='buy_executions', null=True)
-    dex_sell = fields.ForeignKeyField('models.DexPool', related_name='sell_executions', null=True)
-    token_trade = fields.CharField(max_length=42)
+
+    # New Multi-hop field
+    hops = fields.IntField(default=2)
+    route_details = fields.JSONField(null=True)  # {tokens: [], pools: []}
+
     profit = fields.DecimalField(max_digits=36, decimal_places=18)
     timestamp = fields.DatetimeField()
     transaction_hash = fields.CharField(max_length=66, index=True)
