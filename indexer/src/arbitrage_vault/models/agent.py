@@ -6,8 +6,12 @@ class Agent(Model):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=100)
     address = fields.CharField(max_length=42, unique=True)
-    vault = fields.ForeignKeyField('models.Vault', related_name='agents')
+    vault = fields.ForeignKeyField('models.Vault', related_name='vault_agents')
     details = fields.JSONField()
+    strategy_config = fields.JSONField(null=True)
+
+    class Meta:
+        table = 'agents'
 
 
 class AgentDecision(Model):

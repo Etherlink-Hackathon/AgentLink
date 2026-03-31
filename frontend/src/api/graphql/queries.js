@@ -157,3 +157,18 @@ export const AGENT_EXECUTIONS_QUERY = `
     }
   }
 `
+
+/**
+ * Fetch agent by vault ID
+ */
+export const AGENT_BY_VAULT_QUERY = `
+  query GetAgentByVault($vaultId: String!) {
+    agents: agents(where: { vaultId: { _eq: $vaultId } }, limit: 1) {
+      id
+      name
+      address
+      details
+      strategyConfig
+    }
+  }
+`

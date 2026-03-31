@@ -34,12 +34,12 @@ datasources:
     kind: evm.node
     url: ${RPC_URL:-https://node.mainnet.etherlink.com}
     http:
-      batch_size: 100 
+      batch_size: 50
       ratelimit_rate: 1      
-      ratelimit_period: 1
-      retry_count: 20
-      retry_sleep: 10
-      connection_timeout: 60
+      ratelimit_period: 2 # Wait 2 seconds between requests
+      retry_count: 30
+      retry_sleep: 5
+      connection_timeout: 120
 
 indexes:
   vault_events:
@@ -74,7 +74,7 @@ hooks:
 jobs:
   arbitrage_cycle:
     hook: run_arbitrage
-    crontab: "* * * * 3" # Every 3 minutes
+    crontab: "* * * * *" # Every 3 minutes
     args:
       vault_address: "0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d"
       min_profit_usd: 0

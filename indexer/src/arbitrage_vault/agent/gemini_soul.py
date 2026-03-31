@@ -49,7 +49,9 @@ class GeminiSoul:
             self.client = genai.Client(api_key=self.api_key)
             self.model_id = 'gemini-2.0-flash'
 
-    async def review(self, opportunity: dict[str, Any]) -> dict[str, Any] | None:
+    async def review(
+        self, opportunity: dict[str, Any], strategy_config: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         """
         Call Gemini for a high-speed strategic review using the Google SDK.
         """
@@ -57,7 +59,9 @@ class GeminiSoul:
             logger.warning('GEMINI_API_KEY not set. Skipping AI review.')
             return None
 
-        prompt = PROMPT_TEMPLATE.format(opp_json=json.dumps(opportunity, indent=2))
+        opp_data = {'opportunity': opportunity, 'agent_strategy': strategy_config or {}}
+
+        prompt = PROMPT_TEMPLATE.format(opp_json=json.dumps(opp_data, indent=2))
 
         try:
             # Use the new async client syntax (aio)

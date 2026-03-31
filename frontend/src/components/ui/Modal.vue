@@ -111,7 +111,9 @@ const calcModalStyles = computed(() => {
 
 const showShakeAnimation = ref(false)
 const handleClose = (e) => {
-	if (e && e.path.find((el) => el.id === "dropdown")) {
+	const path = e?.path || (e?.composedPath && e.composedPath())
+
+	if (path && path.find((el) => el.id === "dropdown")) {
 		return
 	} else {
 		/** prevent closing */
@@ -240,10 +242,6 @@ const onKeydown = (event) => {
 }
 
 @media (max-width: 600px) {
-	.wrapper {
-		/* align-items: flex-end; */
-	}
-
 	.modal {
 		width: 100% !important;
 

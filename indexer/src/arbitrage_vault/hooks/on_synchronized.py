@@ -1,6 +1,7 @@
-import asyncio
+import json
 import logging
 import os
+from pathlib import Path
 
 from arbitrage_vault.agent.gemini_soul import GeminiSoul
 from arbitrage_vault.agent.strategy import ArbitrageHeuristics
@@ -19,11 +20,25 @@ class AgentExecutor:
     _instance = None
     _semaphore = asyncio.Semaphore(1)
 
+    DEX_TYPE_MAP = {
+        'uniswap v2': 0,
+        'uniswap v3': 1,
+        'camelot v3': 1,  # Camelot V3 is Uniswap V3 fork
+        'pancakeswap v3': 1,
+        'curve': 2,
+        'universal router': 3,
+    }
+
     def __init__(self, rpc_url: str, private_key: str):
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         self.account = Account.from_key(private_key)
         self.heuristics = ArbitrageHeuristics()
         self.soul = GeminiSoul()
+
+        # Load Vault ABI
+        abi_path = Path(__file__).parent.parent / 'abi' / 'ArbitrageVault' / 'abi.json'
+        with open(abi_path) as f:
+            self.vault_abi = json.load(f)
 
     @classmethod
     def get_instance(cls):
@@ -79,26 +94,88 @@ class AgentExecutor:
         """
         Sign and broadcast the transaction.
         """
-        # Placeholder for complex transaction building
-        # In a real scenario, we'd use decision.opportunity_details to call vault.executeArbitrage
-        # For now, we simulate a successful broadcast
-        logger.info('Broadcasting transaction for decision %s...', decision.id)
+        opp = decision.opportunity_details
+        vault_address = (await decision.vault).address
+        vault_contract = self.w3.eth.contract(address=self.w3.to_checksum_address(vault_address), abi=self.vault_abi)
 
-        # Simplified example of sending a tx (e.g. transferring 0 ether to self)
+        # 1. Construct Steps
+        # A standard arbitrage: Asset -> Buy Token X -> Sell for Asset
+        # For simplicity, we assume the vault asset is the base token of the pair (or quote)
+        
+        buy_pool = opp['buy_pool']
+        sell_pool = opp['sell_pool']
+
+        # Determine tokens
+        # GeckoTerminal uses standard addresses. We need to be sure which one is 'tokenIn'
+        # For now, we assume a simple 2-hop: Vault Asset -> Token X -> Vault Asset
+        # In a real environment, we'd resolve this from the Vault's .asset() call
+        vault_asset = await vault_contract.functions.asset().call()
+        
+        # Determine the intermediate token (Token X)
+        t0 = self.w3.to_checksum_address(buy_pool['token0']['address'])
+        t1 = self.w3.to_checksum_address(buy_pool['token1']['address'])
+        token_x = t1 if t0.lower() == vault_asset.lower() else t0
+
+        steps = [
+            {
+                'dex': self.w3.to_checksum_address(buy_pool['address']),
+                'dexType': self.DEX_TYPE_MAP.get(buy_pool.get('dex_name', '').lower(), 1), # Default to V3 if unknown
+                'tokenIn': vault_asset,
+                'tokenOut': token_x,
+                'data': b'', # Use default pathing in contract
+            },
+            {
+                'dex': self.w3.to_checksum_address(sell_pool['address']),
+                'dexType': self.DEX_TYPE_MAP.get(sell_pool.get('dex_name', '').lower(), 1),
+                'tokenIn': token_x,
+                'tokenOut': vault_asset,
+                'data': b'',
+            }
+        ]
+
+        # 2. Params
+        amount_in = 10**18 # 1 unit default for testing or use a percentage of vault balance
+        # In a production agent, we'd fetch the actual vault balance
+        try:
+            amount_in = await vault_contract.functions.totalAssets().call()
+            # Use only 10% for safety in tests if not specified
+            amount_in = amount_in // 10
+        except Exception:
+            pass
+
+        min_profit = int(opp.get('net_profit_usd', 0) * 10**18 / opp.get('xtz_price', 1.5)) # Rough conversion to native
+        if min_profit < 0: min_profit = 0
+
+        # 3. Build Tx
         nonce = self.w3.eth.get_transaction_count(self.account.address)
-        tx = {
-            'nonce': nonce,
-            'to': self.account.address,
-            'value': 0,
-            'gas': 200000,
-            'gasPrice': self.w3.eth.gas_price,  # "Fast" strategy
-            'chainId': 42793,
-        }
-        self.w3.eth.account.sign_transaction(tx, self.account.key)
-        # tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        # return tx_hash.hex()
+        gas_price = self.w3.eth.gas_price
+        
+        # High-performance: Add 10% premium to gas to ensure inclusion
+        fast_gas_price = int(gas_price * 1.1)
 
-        return f'0x_simulated_hash_{decision.id}'
+        tx = vault_contract.functions.executeMultiHop(
+            steps,
+            amount_in,
+            min_profit
+        ).build_transaction({
+            'from': self.account.address,
+            'nonce': nonce,
+            'gas': 1_200_000, # Conservative estimate for multi-hop
+            'gasPrice': fast_gas_price,
+            'chainId': 42793,
+        })
+
+        # 4. Sign and Send
+        signed_tx = self.w3.eth.account.sign_transaction(tx, self.account.key)
+        
+        if os.getenv('DRY_RUN') == 'true':
+            logger.info('DRY RUN: Transaction signed, skipping broadcast. Decision %s', decision.id)
+            return f'0x_dry_run_hash_{decision.id}'
+
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        logger.info('🔔 Arbitrage transaction sent: %s', tx_hash.hex())
+        
+        return tx_hash.hex()
 
 
 async def on_synchronized(ctx: HookContext):

@@ -16,7 +16,9 @@ import WithdrawClaimsModal from "../../local/modals/pools/WithdrawClaimsModal.vu
 import { analytics } from "@sdk"
 import { activeChainConfig } from "@config"
 import { fetchVaultById } from "@/api/vaults"
-import { fetchAgentLogs, fetchAgentTransactions } from "@/api/agent"
+import { fetchAgentLogs, fetchAgentTransactions, fetchAgentByVault } from "@/api/agent"
+import { useNotificationsStore } from "@store/notifications"
+import ConfigModal from "../../local/modals/shared/ConfigModal.vue"
 import { 
   subscribeToAgentDecisions, 
   subscribeToAgentExecutions,
@@ -24,6 +26,7 @@ import {
 } from "@/api/graphql/subscriptions"
 import { onUnmounted } from "vue"
 
+const notificationsStore = useNotificationsStore()
 const liveLogs = ref([])
 const agentTransactions = ref([])
 const subscriptions = []
@@ -38,6 +41,8 @@ const activeTab = ref("info") // info | position
 
 const showDepositModal = ref(false)
 const showWithdrawModal = ref(false)
+const showConfigModal = ref(false)
+const agentConfig = ref(null)
 
 const breadcrumbs = computed(() => [
 	{ name: "Explore", path: "/explore" },
@@ -63,6 +68,39 @@ const fetchBackendData = async () => {
 	} catch (error) {
 		console.error("Failed to fetch backend data:", error)
 	}
+}
+
+const handleShowConfig = async () => {
+    try {
+        const agent = await fetchAgentByVault(props.id)
+        if (agent) {
+            agentConfig.value = agent.strategyConfig || {}
+            showConfigModal.value = true
+        } else {
+            notificationsStore.create({
+                notification: {
+                    type: "warning",
+                    title: "Agent not found",
+                    description: "This vault doesn't have an active strategist yet.",
+                    autoDestroy: true,
+                },
+            })
+        }
+    } catch (error) {
+        console.error("Failed to fetch agent config:", error)
+    }
+}
+
+const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href)
+    notificationsStore.create({
+        notification: {
+            type: "success",
+            title: "Link copied",
+            description: "Vault link copied to clipboard",
+            autoDestroy: true,
+        },
+    })
 }
 
 onMounted(async () => {
@@ -124,11 +162,11 @@ onUnmounted(() => {
 					<Text size="14" weight="500" color="tertiary">{{ vault.strategyType }} • {{ vault.poolData?.dex }}</Text>
 				</Flex>
 				<Flex gap="12">
-					<Button type="secondary" size="small">
+					<Button @click="handleShare" type="secondary" size="small">
 						<Icon name="share" size="14" />
 						Share
 					</Button>
-					<Button type="secondary" size="small">
+					<Button @click="handleShowConfig" type="secondary" size="small">
 						<Icon name="settings" size="14" />
 						Strategy Config
 					</Button>
@@ -211,6 +249,14 @@ onUnmounted(() => {
 			:pool="{ address: vault.address, name: vault.name }"
 			:positions="[]"
 			@onClose="showWithdrawModal = false"
+		/>
+
+		<ConfigModal 
+			v-if="vault"
+			:show="showConfigModal"
+			:title="`${vault.name} Strategy`"
+			:config="agentConfig"
+			@onClose="showConfigModal = false"
 		/>
 	</div>
 </template>

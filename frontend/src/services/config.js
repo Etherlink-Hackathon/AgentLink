@@ -110,7 +110,7 @@ export const sanity = {
 
 export const contracts = {
   mainnet: {
-    vault: "0x273cd6220280EaeD8d8269C786e8718FF2442593",
+    vault: "0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d",
   },
   testnet: {
     vault: "0x0000000000000000000000000000000000000000",

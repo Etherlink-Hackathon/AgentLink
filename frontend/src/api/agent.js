@@ -1,5 +1,5 @@
 import { flameWager } from "@/services/sdk"
-import { AGENT_DECISIONS_QUERY, AGENT_EXECUTIONS_QUERY } from "./graphql/queries"
+import { AGENT_DECISIONS_QUERY, AGENT_EXECUTIONS_QUERY, AGENT_BY_VAULT_QUERY } from "./graphql/queries"
 import { DateTime } from "luxon"
 
 /**
@@ -91,5 +91,34 @@ export const fetchAgentStatus = async () => {
             total_profit_24h: "$0.00",
             active_strategies: 0
         }
+    }
+}
+
+/**
+ * Fetch a single agent and its configuration by vault ID
+ */
+export const fetchAgentByVault = async (vaultId) => {
+    try {
+        if (!flameWager.gql) return null
+
+        const result = await flameWager.gql.query(AGENT_BY_VAULT_QUERY, { vaultId }).toPromise()
+        
+        if (result.error) {
+            throw result.error
+        }
+
+        const agent = result.data.agents[0]
+        if (!agent) return null
+
+        return {
+            ...agent,
+            details: typeof agent.details === 'string' ? JSON.parse(agent.details) : agent.details,
+            strategyConfig: typeof agent.strategyConfig === 'string' 
+                ? JSON.parse(agent.strategyConfig) 
+                : agent.strategyConfig
+        }
+    } catch (error) {
+        console.error("Failed to fetch agent by vault:", error)
+        return null
     }
 }
