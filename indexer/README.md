@@ -31,6 +31,64 @@ STRATEGIST_PRIVATE_KEY=your_private_key
 STRATEGIST_ADDRESS=0x...
 ```
 
+### Installation
+
+1. **Clone and enter the project directory**:
+   ```bash
+   cd indexer
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   python3.12 -m venv venv
+   source venv/bin/activate
+   ```
+   
+   Then 
+   ```bash
+   # With Poetry (recommended)
+   poetry install
+   
+   # Or with pip
+   pip install -r requirements.txt
+   ```
+
+3. **Set up environment variables**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. **Configure contract addresses**:
+   Edit the appropriate `dipdup.{network}.yml` file with your deployed contract addresses.
+
+### Running with Docker (Recommended)
+
+1. **Start all services**:
+```bash
+   make docker-up
+   # or
+   docker-compose up -d
+   ```
+
+2. **Check logs**:
+   ```bash
+   make docker-logs
+   # or
+   docker-compose logs -f indexer
+   ```
+
+3. **Initialize database** (first time only):
+```bash
+   docker-compose exec indexer dipdup -c dipdup.yml init
+   ```
+
+4. **Schema Wipe / Reindexing** (if schema changes):
+   If you need to wipe the database and reindex (e.g. after changing models or SQL views), run:
+```bash
+   docker-compose run --rm indexer -c dipdup.yml schema wipe --force
+   ```
+
 ## 📖 How to Run
 
 ### Local Development

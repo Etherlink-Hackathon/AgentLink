@@ -5,24 +5,48 @@ database:
   kind: postgres
   host: ${POSTGRES_HOST:-localhost}
   port: ${POSTGRES_PORT:-5432}
-  user: ${POSTGRES_USER:-dipdup}
-  password: ${POSTGRES_PASSWORD:-changeme}
-  database: ${POSTGRES_DB:-dipdup}
+  user: ${POSTGRES_USER:-huydo}
+  password: ${POSTGRES_PASSWORD:-huydo2105}
+  database: ${POSTGRES_DB:-huydo}
+
+hasura:
+  url: http://hasura:8181
+  admin_secret: ${ADMIN_SECRET:-huydo2105}
+  select_limit: ${SELECT_LIMIT:-1000}
+  camel_case: true
+  allow_aggregations: true
+  rest: true
 
 contracts:
   vault:
-    address: ${VAULT_ADDRESS:-0x5555555555555555555555555555555555555555}
+    address: 0x273cd6220280EaeD8d8269C786e8718FF2442593
     typename: ArbitrageVault
 
 datasources:
+  subsquid:
+    kind: evm.subsquid
+    url: ${SUBSQUID_URL:-https://portal.sqd.dev/datasets/etherlink-mainnet}
+  etherscan:
+    kind: evm.etherscan
+    url: ${ETHERSCAN_URL:-https://api.etherscan.io/v2/api?chainId=42793}
+    api_key: ${ETHERSCAN_API_KEY:-changeme}
   evm_node:
     kind: evm.node
     url: ${RPC_URL:-https://node.mainnet.etherlink.com}
+    http:
+      batch_size: 100 
+      ratelimit_rate: 1      
+      ratelimit_period: 1
+      retry_count: 20
+      retry_sleep: 10
+      connection_timeout: 60
 
 indexes:
   vault_events:
     kind: evm.events
     datasources:
+      - subsquid
+      - etherscan
       - evm_node
     handlers:
       - callback: on_arbitrage_executed
@@ -34,8 +58,7 @@ indexes:
       - callback: on_withdraw
         contract: vault
         name: Withdraw
-    on_synchronized:
-      - callback: start_agent_listener # Call the listener task
+
 hooks:
   run_arbitrage:
     callback: run_arbitrage
@@ -43,13 +66,11 @@ hooks:
     args:
       vault_address: str
       min_profit_usd: float
-  start_agent_listener:
-    callback: agent_execute_listener # Points to hooks/agent_executor.py
 
 jobs:
   arbitrage_cycle:
     hook: run_arbitrage
     crontab: "* * * * *" # Every minute
     args:
-      vault_address: ${VAULT_ADDRESS:-0x5555555555555555555555555555555555555555}
-      min_profit_usd: 0.1
+      vault_address: 0x273cd6220280EaeD8d8269C786e8718FF2442593
+      min_profit_usd: 0

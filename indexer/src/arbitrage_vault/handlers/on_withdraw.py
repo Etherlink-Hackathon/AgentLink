@@ -1,19 +1,21 @@
-from arbitrage_vault.models import UserAction, Vault
+from arbitrage_vault.models import UserAction
+from arbitrage_vault.models import Vault
+from arbitrage_vault.types.ArbitrageVault.evm_events.withdraw import WithdrawPayload
 from dipdup.context import HandlerContext
 from dipdup.models.evm import EvmEvent
-from arbitrage_vault.types.arbitrage_vault.evm_events.withdraw import Withdraw
+
 
 async def on_withdraw(
     ctx: HandlerContext,
-    event: EvmEvent[Withdraw],
+    event: EvmEvent[WithdrawPayload],
 ) -> None:
     vault, _ = await Vault.get_or_create(
         address=event.data.address,
         defaults={
-            "name": "Etherlink Arbitrage Vault",
-            "symbol": "EAV",
-            "asset_address": "0x0000000000000000000000000000000000000000",
-        }
+            'name': 'Etherlink Arbitrage Vault',
+            'symbol': 'EAV',
+            'asset_address': '0x0000000000000000000000000000000000000000',
+        },
     )
 
     assets = event.payload.assets / 10**18
@@ -22,7 +24,7 @@ async def on_withdraw(
     await UserAction.create(
         vault=vault,
         user=event.payload.owner,
-        action_type="WITHDRAW",
+        action_type='WITHDRAW',
         assets=assets,
         shares=shares,
         timestamp=event.data.timestamp,

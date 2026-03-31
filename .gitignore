@@ -7,3 +7,5 @@ dist/
 contracts/cache/*
 contracts/typechain-types/*
 contracts/artifacts/*
+indexer/venv/*
+indexer/.local

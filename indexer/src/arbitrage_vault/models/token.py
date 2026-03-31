@@ -1,5 +1,6 @@
-from tortoise import fields
 from dipdup.models import Model
+from tortoise import fields
+
 
 class Token(Model):
     id = fields.IntField(pk=True)
@@ -9,4 +10,4 @@ class Token(Model):
     decimals = fields.IntField()
 
     class Meta:
-        table = "tokens"
+        table = 'tokens'

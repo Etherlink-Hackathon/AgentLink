@@ -1,4 +1,4 @@
-dipdup==8.2.3
+dipdup>=8.1.2,<9.0.0
 psycopg2-binary
 pydantic
 httpx

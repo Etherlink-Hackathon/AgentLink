@@ -1,8 +1,9 @@
+import asyncio
+import json
 import logging
 import os
-import json
-import asyncio
-from typing import Dict, Any, Optional
+from typing import Any
+
 import google.generativeai as genai
 from eth_abi import encode as abi_encode
 
@@ -38,23 +39,24 @@ SCHEMA:
 }}
 """
 
+
 class GeminiSoul:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
+        self.api_key = os.getenv('GEMINI_API_KEY')
         if self.api_key:
             genai.configure(api_key=self.api_key)
             self.model = genai.GenerativeModel('gemini-3-flash')
 
-    async def review(self, opportunity: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def review(self, opportunity: dict[str, Any]) -> dict[str, Any] | None:
         """
         Call Gemini 1.5 Flash for a high-speed strategic review using the Google SDK.
         """
         if not self.api_key:
-            logger.warning("GEMINI_API_KEY not set. Skipping AI review.")
+            logger.warning('GEMINI_API_KEY not set. Skipping AI review.')
             return None
 
         prompt = PROMPT_TEMPLATE.format(opp_json=json.dumps(opportunity, indent=2))
-        
+
         try:
             # Wrap the blocking generate_content call or use the async version
             # We enforce the 1s timeout as requested by the user
@@ -62,30 +64,26 @@ class GeminiSoul:
                 self.model.generate_content_async(
                     prompt,
                     generation_config=genai.types.GenerationConfig(
-                        response_mime_type="application/json",
-                    )
+                        response_mime_type='application/json',
+                    ),
                 ),
-                timeout=1.0
+                timeout=1.0,
             )
-            
+
             if response.text:
                 return json.loads(response.text)
             return None
-                
-        except asyncio.TimeoutError:
-            logger.warning("Gemini API review timed out after 1s. Falling back to heuristics.")
+
+        except TimeoutError:
+            logger.warning('Gemini API review timed out after 1s. Falling back to heuristics.')
             return None
         except Exception as e:
-            logger.error(f"Gemini SDK Error: {e}")
+            logger.error('Gemini SDK Error: %s', e)
             return None
 
     @staticmethod
     def encode_universal_router_swap(
-        recipient: str,
-        amount_in: int,
-        amount_out_min: int,
-        path: bytes,
-        payer_is_user: bool = False
+        recipient: str, amount_in: int, amount_out_min: int, path: bytes, payer_is_user: bool = False
     ) -> str:
         """
         Python equivalent of the Universal Router V3_SWAP_EXACT_IN encoder.
@@ -93,18 +91,15 @@ class GeminiSoul:
         """
         # Command 0x00 = V3_SWAP_EXACT_IN
         commands = b'\x00'
-        
+
         # Input: (address recipient, uint256 amountIn, uint256 amountOutMin, bytes path, bool payerIsUser)
         input_data = abi_encode(
-            ["address", "uint256", "uint256", "bytes", "bool"],
-            [recipient, amount_in, amount_out_min, path, payer_is_user]
+            ['address', 'uint256', 'uint256', 'bytes', 'bool'],
+            [recipient, amount_in, amount_out_min, path, payer_is_user],
         )
-        
+
         # Final dexData: (bytes commands, bytes[] inputs)
         # Note: In Python/eth-abi, bytes[] is encoded as [input_data]
-        encoded_payload = abi_encode(
-            ["bytes", "bytes[]"],
-            [commands, [input_data]]
-        )
-        
-        return "0x" + encoded_payload.hex()
+        encoded_payload = abi_encode(['bytes', 'bytes[]'], [commands, [input_data]])
+
+        return '0x' + encoded_payload.hex()

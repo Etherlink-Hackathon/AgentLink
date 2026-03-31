@@ -1,22 +1,21 @@
-FROM dipdup/dipdup:8.2
+FROM dipdup/dipdup:8
 
+WORKDIR /home/dipdup
+
+# Switch to root to install dependencies globally
 USER root
 
-# Install system dependencies for web3/psycopg2
-RUN apt-get update && apt-get install -y \
-    gcc \
-    python3-dev \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Copy requirements
+COPY requirements.txt .
 
+# Install dependencies using the system python, which is usually where pip is
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
+
+# Ensure the system site-packages are on the path for DipDup's own environment
+ENV PYTHONPATH="/usr/local/lib/python3.12/site-packages:/home/dipdup/src"
+
+# Switch back to the default dipdup user
 USER dipdup
 
-# Install Python dependencies
-COPY --chown=dipdup:dipdup requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy project files
-COPY --chown=dipdup:dipdup . .
-
-# Default command to run the indexer
-CMD ["dipdup", "run"]
+# Copy everything
+COPY . .
