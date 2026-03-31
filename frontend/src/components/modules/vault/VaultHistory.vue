@@ -1,43 +1,41 @@
 <script setup>
-import { ref } from "vue"
+import { ref, onMounted, computed } from "vue"
+import { useAccountStore } from "@/store/account"
+import { fetchUserActions } from "@/api/user"
+import { DateTime } from "luxon"
 import HistoryTable from "./HistoryTable.vue"
 
 const props = defineProps({
 	vault: Object,
 })
 
-const mockHistory = [
-	{ 
-		type: "Deposit", 
-		amount: "1.50 XTZ", 
-		timestamp: "Nov 23, 2025 10:42 AM", 
-		hash: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e" 
-	},
-	{ 
-		type: "Withdraw Request", 
-		amount: "0.25 XTZ", 
-		timestamp: "Nov 21, 2025 02:15 PM", 
-		hash: "0x89221f1912252a3b844Bc454e4438f44e12345678" 
-	},
-	{ 
-		type: "Deposit", 
-		amount: "2.00 XTZ", 
-		timestamp: "Nov 19, 2025 09:30 AM", 
-		hash: "0x1234567890abcdef1234567890abcdef12345678" 
-	},
-	{ 
-		type: "Withdraw Cancelled", 
-		amount: "0.50 XTZ", 
-		timestamp: "Nov 17, 2025 08:05 PM", 
-		hash: "0xabcdef1234567890abcdef1234567890abcdef12" 
-	},
-	{ 
-		type: "Deposit", 
-		amount: "1.00 XTZ", 
-		timestamp: "Nov 15, 2025 11:20 AM", 
-		hash: "0x9876543210fedcba9876543210fedcba98765432" 
-	},
-]
+const account = useAccountStore()
+const history = ref([])
+const isLoading = ref(false)
+
+const mappedHistory = computed(() => {
+	return history.value.map(action => ({
+		id: action.id,
+		type: action.type,
+		amount: `${parseFloat(action.assets).toFixed(4)} XTZ`, 
+		timestamp: DateTime.fromISO(action.timestamp).toFormat("MMM dd, yyyy HH:mm"),
+		hash: action.hash
+	}))
+})
+
+onMounted(async () => {
+	if (account.pkh && props.vault?.address) {
+		isLoading.value = true
+		try {
+			const data = await fetchUserActions(account.pkh.toLowerCase(), props.vault.address)
+			history.value = data
+		} catch (error) {
+			console.error("Failed to fetch history:", error)
+		} finally {
+			isLoading.value = false
+		}
+	}
+})
 </script>
 
 <template>
@@ -51,7 +49,7 @@ const mockHistory = [
 			</div>
 		</Flex>
 
-		<HistoryTable :history="mockHistory" />
+		<HistoryTable :history="mappedHistory" />
 	</div>
 </template>
 

@@ -14,12 +14,19 @@ import Button from "@ui/Button.vue"
 import DepositModal from "../../local/modals/pools/DepositModal.vue"
 import WithdrawClaimsModal from "../../local/modals/pools/WithdrawClaimsModal.vue"
 import { analytics } from "@sdk"
+import { activeChainConfig } from "@config"
 import { fetchVaultById } from "@/api/vaults"
 import { fetchAgentLogs, fetchAgentTransactions } from "@/api/agent"
-import { activeChainConfig } from "@/services/config"
+import { 
+  subscribeToAgentDecisions, 
+  subscribeToAgentExecutions,
+  subscribeToVault
+} from "@/api/graphql/subscriptions"
+import { onUnmounted } from "vue"
 
 const liveLogs = ref([])
 const agentTransactions = ref([])
+const subscriptions = []
 
 const props = defineProps({
 	id: String,
@@ -61,15 +68,42 @@ const fetchBackendData = async () => {
 onMounted(async () => {
 	analytics.log("onPage", { name: "VaultDetail", id: props.id })
 	try {
-		await new Promise(r => setTimeout(r, 1000))
+		await new Promise(r => setTimeout(r, 500))
 		const data = await fetchVaultById(props.id)
 		vault.value = data
 		await fetchBackendData()
+
+    // Subscriptions
+    subscriptions.push(subscribeToAgentDecisions((newLogs) => {
+      // Append or replace? Let's refresh all for simplicity since it's limited to 20
+      fetchAgentLogs().then(logs => liveLogs.value = logs)
+    }))
+
+    subscriptions.push(subscribeToAgentExecutions((newTxs) => {
+      fetchAgentTransactions().then(txs => agentTransactions.value = txs)
+    }))
+
+    subscriptions.push(subscribeToVault(props.id, (updatedVault) => {
+      if (updatedVault) {
+        // Update TVL/APY in real-time
+        const latestSnapshot = updatedVault.snapshots[0] || {}
+        vault.value = {
+          ...vault.value,
+          tvl: latestSnapshot.totalAssets || 0,
+          apy: latestSnapshot.apy || 0
+        }
+      }
+    }))
+
 	} catch (error) {
 		console.error("Failed to fetch vault details:", error)
 	} finally {
 		isLoading.value = false
 	}
+})
+
+onUnmounted(() => {
+  subscriptions.forEach(sub => sub.unsubscribe())
 })
 </script>
 

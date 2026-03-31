@@ -1,17 +1,10 @@
-/**
- * AgentLink SDK
- * Handles wallet connection and network state for the AgentLink frontend
- */
-
+import { createClient, cacheExchange, fetchExchange, subscriptionExchange } from "@urql/core"
+import { createClient as createWSClient } from "graphql-ws"
 import { computed, reactive, markRaw } from "vue"
 import { ethers } from "ethers"
 import { switchChain } from "@wagmi/core"
 import { activeRpcNode, NETWORK_TYPE, activeChainConfig, dipdup, contracts } from "@config"
 import vaultABI from "@/abis/ArbitrageVault.json"
-
-/**
- * Services.Constants
- */
 import { Networks } from "@/services/constants/networks"
 import ERC20ABI from "@/abis/ERC20.json"
 
@@ -28,6 +21,81 @@ const flameWager = reactive({
 const currentNetwork = computed(() => {
   return activeChainConfig.network
 })
+
+/**
+ * Get contract addresses for current network (placeholder)
+ */
+const getContractAddresses = () => {
+  const networkKey = currentNetwork.value === 'mainnet' ? 'mainnet' : 'testnet'
+  return contracts[networkKey] || contracts.testnet
+}
+
+/**
+ * Initialize GraphQL client
+ */
+const init = () => {
+  const networkKey = currentNetwork.value === 'mainnet' ? 'mainnet' : 'testnet'
+  const graphqlConfig = dipdup[networkKey]
+  const addresses = getContractAddresses()
+
+  // Only init contract if signer is available
+  if (addresses.vault && flameWager.signer) {
+    flameWager.vaults[addresses.vault] = markRaw(new ethers.Contract(
+      addresses.vault,
+      vaultABI,
+      flameWager.signer
+    ))
+  }
+
+  if (!graphqlConfig) {
+    console.warn("GraphQL configuration not found for network:", networkKey)
+    return
+  }
+
+  try {
+    const wsClient = createWSClient({
+      url: graphqlConfig.ws,
+    });
+
+    flameWager.gql = markRaw(createClient({
+      url: graphqlConfig.graphql,
+      // Ensure we are using standard fetchExchange without persisted queries
+      exchanges: [
+        cacheExchange,
+        subscriptionExchange({
+          forwardSubscription: (request) => {
+            const input = { ...request, query: request.query || '' }
+            return {
+              subscribe: (sink) => {
+                const unsubscribe = wsClient.subscribe(input, sink)
+                return { unsubscribe }
+              },
+            }
+          },
+        }),
+        fetchExchange,
+      ],
+      // Explicitly set preferGetMethod to false if it was accidentally enabled elsewhere
+      preferGetMethod: false, 
+      fetchOptions: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    }));
+
+    console.log("✅ GraphQL client initialized:", graphqlConfig.graphql)
+  } catch (error) {
+    console.error("Failed to initialize GraphQL client:", error)
+
+    // Fallback: Create client without subscriptions
+    flameWager.gql = markRaw(createClient({
+      url: graphqlConfig.graphql,
+      exchanges: [cacheExchange, fetchExchange],
+    }))
+  }
+}
 
 const getERC20Contract = (address) => {
   if (!flameWager.signer) throw new Error("SDK not initialized with signer")
@@ -53,7 +121,7 @@ const approve = async (vaultAddress, amount) => {
     if (!vault) throw new Error("Vault contract not found for address: " + vaultAddress)
     const assetAddress = await vault.asset()
     const asset = getERC20Contract(assetAddress)
-    
+
     console.log(`Approving ${amount.toString()} of ${assetAddress} for vault ${vaultAddress}...`)
     const tx = await asset.approve(vaultAddress, amount)
     return tx
@@ -73,86 +141,17 @@ if (typeof localStorage !== 'undefined') {
 }
 
 /**
- * Initialize GraphQL client
- */
-const init = () => {
-  const networkKey = currentNetwork.value === 'mainnet' ? 'mainnet' : 'testnet'
-  const graphqlConfig = dipdup[networkKey]
-  const addresses = getContractAddresses()
-
-  flameWager.vaults[addresses.vault] = markRaw(new ethers.Contract(
-    addresses.vault,
-    vaultABI,
-    flameWager.signer
-  ))
-
-  if (!graphqlConfig) {
-    console.warn("GraphQL configuration not found for network:", networkKey)
-    return
-  }
-
-  try {
-    const wsClient = createWSClient({
-      url: graphqlConfig.ws,
-    });
-
-    flameWager.gql = markRaw(createClient({
-      url: graphqlConfig.graphql,
-      exchanges: [
-        cacheExchange,
-        subscriptionExchange({
-          forwardSubscription: (request) => {
-            const input = { ...request, query: request.query || '' }
-            return {
-              subscribe: (sink) => {
-                const unsubscribe = wsClient.subscribe(input, sink)
-                return { unsubscribe }
-              },
-            }
-          },
-        }),
-        fetchExchange,
-      ],
-      fetchOptions: {
-        method: "POST",
-      },
-    }));
-
-    console.log("✅ GraphQL client initialized:", graphqlConfig.graphql)
-  } catch (error) {
-    console.error("Failed to initialize GraphQL client:", error)
-
-    // Fallback: Create client without subscriptions
-    flameWager.gql = markRaw(createClient({
-      url: graphqlConfig.graphql,
-    }))
-  }
-}
-
-
-/**
- * Get contract addresses for current network (placeholder)
- */
-const getContractAddresses = () => {
-  const networkKey = currentNetwork.value === 'mainnet' ? 'mainnet' : 'testnet'
-  return contracts[networkKey] || contracts.testnet
-}
-
-/**
  * Initialize vault contracts
  */
 const initVaults = (vaults) => {
-  // if (!flameWager.signer) {
-  //   console.warn("Cannot initialize pools: no signer available")
-  //   return
-  // }
-
   vaults.forEach(vault => {
-    flameWager.vaults[vault.address.toLowerCase()] = markRaw(new ethers.Contract(
-      vault.address,
-      vaultABI,
-      flameWager.signer
-    ))
+    if (flameWager.signer) {
+      flameWager.vaults[vault.address.toLowerCase()] = markRaw(new ethers.Contract(
+        vault.address,
+        vaultABI,
+        flameWager.signer
+      ))
+    }
   })
 }
 
@@ -210,6 +209,9 @@ const destroySubscription = (sub) => {
   }
 }
 
+// Initial call
+init()
+
 export {
   flameWager,
   currentNetwork,
@@ -220,4 +222,5 @@ export {
   initVaults,
   getAllowance,
   approve,
+  init
 }

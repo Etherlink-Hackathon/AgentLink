@@ -49,10 +49,6 @@ async function main() {
     if (whitelistFlag) {
         console.log("\n🛡️  Whitelisting real DEX addresses...");
 
-        // Whitelist the main Oku SwapRouter
-        await (await vault.setWhitelistedDex(OKU_ROUTER, true)).wait();
-        console.log(`✅ Whitelisted Oku SwapRouter: ${OKU_ROUTER}`);
-
         // Whitelist all pools from the JSON file
         for (const pool of pools) {
             await (await vault.setWhitelistedDex(pool.address, true)).wait();

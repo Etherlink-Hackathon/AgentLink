@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed } from "vue"
 import Pagination from "@ui/Pagination.vue"
-import { getCurrencyIcon } from "@utils/misc"
+import { getCurrencyIcon, getDexIcon } from "@utils/misc"
+import { DateTime } from "luxon"
 
 const props = defineProps({
 	logs: Array,
@@ -18,11 +19,40 @@ const totalPages = computed(() => {
 	return Math.ceil(props.transactions.length / itemsPerPage)
 })
 
+const formatLogTime = (ts) => {
+	return DateTime.fromISO(ts).toFormat("HH:mm:ss")
+}
+
+const formatTxTime = (ts) => {
+	return DateTime.fromISO(ts).toFormat("MMM dd, HH:mm")
+}
+
+const getLogMessage = (log) => {
+	if (log.status === "error") return `Error: ${log.error}`
+	if (log.geminiVerdict === "EXECUTE") return `🚀 Gemini detected opportunity! Executing swap...`
+	if (log.heuristicsVerdict === "EXECUTE") return `⚡ Heuristics triggered scan. Found profitable route.`
+	return `🔍 Scanning pools... ${log.status}`
+}
+
 const paginatedHistory = computed(() => {
 	if (!props.transactions) return []
+	const mapped = props.transactions.map(tx => {
+		const firstHop = tx.routeDetails?.steps?.[0] || {}
+		return {
+			...tx,
+			time: formatTxTime(tx.timestamp),
+			pair: firstHop.token_in ? `${firstHop.token_in} / ${firstHop.token_out}` : "Multi-hop",
+			dex: firstHop.dex || "Oku Trade",
+			type: "Arbitrage",
+			direction: "Execution",
+			size: firstHop.amount_in ? `${parseFloat(firstHop.amount_in).toFixed(4)} ${firstHop.token_in}` : "—",
+			profit: tx.profit ? `${parseFloat(tx.profit) > 0 ? '+' : ''}${parseFloat(tx.profit).toFixed(6)}` : "0.00"
+		}
+	})
+
 	const start = (currentPage.value - 1) * itemsPerPage
 	const end = start + itemsPerPage
-	return props.transactions.slice(start, end)
+	return mapped.slice(start, end)
 })
 
 const getExplorerUrl = (hash) => `https://explorer.etherlink.com/tx/${hash}`
@@ -58,8 +88,8 @@ const getTokenPair = (pair) => {
 			<!-- Execution Logs -->
 			<div v-if="activeTab === 'logs'" :class="$style.logs">
 				<div v-for="(log, i) in logs" :key="i" :class="$style.log_line">
-					<span :class="$style.log_time">{{ log.time }}</span>
-					<span :class="$style.log_msg">{{ log.msg }}</span>
+					<span :class="$style.log_time">{{ formatLogTime(log.createdAt) }}</span>
+					<span :class="$style.log_msg">{{ getLogMessage(log) }}</span>
 				</div>
 				<div v-if="logs.length === 0" :class="$style.empty_logs">
 					Waiting for agent to start...
@@ -100,7 +130,7 @@ const getTokenPair = (pair) => {
 								</td>
 								<td>
 									<Flex align="center" gap="8">
-										<img v-if="tx.dex" :src="getCurrencyIcon(tx.dex)" :class="$style.dex_img" alt="dex" />
+										<img v-if="tx.dex" :src="getDexIcon(tx.dex)" :class="$style.dex_img" alt="dex" />
 										<Text size="13" weight="600" color="secondary">{{ tx.dex || "—" }}</Text>
 									</Flex>
 								</td>

@@ -13,7 +13,11 @@ export const getTokenLogo = (symbol) => {
 	if (s.includes("lyzi")) return new URL(`../../assets/img/lyzi.png`, import.meta.url).href
 	if (s.includes("pepe")) return new URL(`../../assets/img/tzpepe.png`, import.meta.url).href
 	if (s.includes("mbasis")) return new URL(`../../assets/img/mbasis.png`, import.meta.url).href
-	if (s.includes("mTBILL")) return new URL(`../../assets/img/mtbill.png`, import.meta.url).href
+	if (s.includes("mtbill")) return new URL(`../../assets/img/mtbill.png`, import.meta.url).href
+	if (s.includes("mre7yield")) return new URL(`../../assets/img/mre7yield.png`, import.meta.url).href
+	if (s.includes("sogni")) return new URL(`../../assets/img/sogni.jpg`, import.meta.url).href
+	if (s.includes("cndy")) return new URL(`../../assets/img/cndy.jpg`, import.meta.url).href
+	if (s.includes("mmev")) return new URL(`../../assets/img/mmev.png`, import.meta.url).href
 	if (s.includes("crv") || s.includes("curve")) return new URL(`../../assets/img/curve.png`, import.meta.url).href
 	return null
 }
@@ -26,6 +30,14 @@ export const getCurrencyIcon = (name) => {
 	} catch (e) {
 		return ""
 	}
+}
+
+export const getDexIcon = (name) => {
+	if (!name) return null
+	const s = name.toLowerCase()
+	if (s.includes("curve")) return new URL(`../../assets/img/curve.png`, import.meta.url).href
+	if (s.includes("oku")) return new URL(`../../assets/img/oku.png`, import.meta.url).href
+	return new URL(`../../assets/img/oku.png`, import.meta.url).href
 }
 
 export const capitalizeFirstLetter = (str) => {
@@ -41,7 +53,7 @@ export const pluralize = (val, word, plural = word + "s") => {
 }
 
 export const shorten = (str, left = 6, right = 4) => {
-  if (!str) return ""
+	if (!str) return ""
 	return `${str.slice(0, left)}...${str.slice(
 		str.length - right,
 		str.length,

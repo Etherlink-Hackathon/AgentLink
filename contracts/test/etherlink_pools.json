@@ -58,5 +58,35 @@
     "address": "0x23a5c960186e256582084ca5ca8476c453aad8c4",
     "dex": "Oku Trade (Etherlink)",
     "liquidity": "210.1K"
+  },
+  {
+    "pair": "WBTC / WXTZ (0.05%)",
+    "address": "0x2a5120e8b04e7f2d3fbbbd82afb4cd70de0f5d0e",
+    "dex": "Oku Trade (Etherlink)",
+    "liquidity": "70,26k"
+  },
+  {
+    "pair": "USDC / WBTC (0.05%)",
+    "address": "0x80c789ebb377d257b5b660100757307099f0e3c0",
+    "dex": "Oku Trade (Etherlink)",
+    "liquidity": "70,26k"
+  },
+  {
+    "pair": "CNDY / WXTZ (1%)",
+    "address": "0xb1ef362f4840bded79fbe6e91bcfdc866b760159",
+    "dex": "Oku Trade (Etherlink)",
+    "liquidity": "70,26k"
+  },
+  {
+    "pair": "LYZI / USDC (0.3%)",
+    "address": "0x2a5120xd89afffbb87a4edb2eb7bb5f2c5651cd53934bca0e8b04e7f2d3fbbbd82afb4cd70de0f5d0e",
+    "dex": "Oku Trade (Etherlink)",
+    "liquidity": "70,26k"
+  },
+  {
+    "pair": "USDC / LBTC (0.05%)",
+    "address": "0x50fe07f16943c55220fbc36c52e98559252a93b4",
+    "dex": "Oku Trade (Etherlink)",
+    "liquidity": "841.38K"
   }
 ]

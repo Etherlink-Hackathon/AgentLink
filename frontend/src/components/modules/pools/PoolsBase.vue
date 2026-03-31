@@ -2,10 +2,8 @@
 /**
  * Vendor
  */
-import { ref, onMounted, onUnmounted, computed, watch } from "vue"
-// import { makeSummaryPosition } from "@juster-finance/sdk"
+import { ref, onMounted, computed } from "vue"
 import { useMeta } from "vue-meta"
-import BN from "bignumber.js"
 
 /**
  * Local
@@ -35,23 +33,20 @@ import TimelineModal from "@local/modals/pools/TimelineModal.vue"
  * Services
  */
 import { flags, updateFlag } from "@/services/flags"
-import { flameWager as juster } from "@sdk"
 
 /**
- * Models
+ * API
  */
-import { entryLiquidity as entryLiquidityModel, poolPosition as poolPositionModel, poolState as poolStateModel } from "@/graphql/models"
+import { fetchPools } from "@/api/pools"
 
 /**
  * Store
  */
 import { useAccountStore } from "@store/account"
 import { useNotificationsStore } from "@store/notifications"
-import { useMarketStore } from "@store/market"
 
 const accountStore = useAccountStore()
 const notificationsStore = useNotificationsStore()
-const marketStore = useMarketStore()
 
 const showSharePoolModal = ref(false)
 const showPoolsModal = ref(false)
@@ -59,6 +54,10 @@ const showTimelineModal = ref(false)
 const showDepositModal = ref(false)
 const showWithdrawClaimsModal = ref(false)
 const showRequestWithdrawModal = ref(false)
+
+const pools = ref([])
+const isPopulated = ref(false)
+const selectedPool = ref({})
 
 const handleSelectPool = (pool) => {
 	selectedPool.value = pool
@@ -94,7 +93,6 @@ const handleClosePoolsWarning = () => {
 			type: "success",
 			title: "Warning is now hidden",
 			autoDestroy: true,
-
 			actions: [
 				{
 					name: "Undo",
@@ -108,214 +106,26 @@ const handleClosePoolsWarning = () => {
 	})
 }
 
-/**
- * Pools
- */
-
-const contracts = computed(() => Object.keys(juster.pools))
-const pools = computed(() => marketStore.pools)
-const selectedPool = ref({})
-
-const isPopulated = ref(false)
-const poolsStates = ref({})
-const poolsAPY = ref({})
-
-const summaries = ref({})
-
-/**
- * Pool Position
- */
-const subPositions = ref({})
-const positions = ref([])
-
-/**
- * Entries
- */
-const subEntries = ref({})
-const entries = ref([])
-
-/**
- * States
- */
-const subStates = ref({})
-
 const populatePools = async () => {
-	for (const index in pools.value) {
-		if (!Object.hasOwnProperty.call(pools.value, index)) return
-		const pool = pools.value[index]
-
-		poolsStates.value[pool.address] = await juster.pools[pool.address].getLastPoolState()
-
-		poolsAPY.value[pool.address] = (await juster.pools[pool.address].getAPY()).toNumber()
-	}
-
-	isPopulated.value = true
-
-	setupSubToStates()
-}
-
-const setupSubToStates = async () => {
-	subStates.value = await juster.gql
-		.subscription({
-			poolState: [
-				{
-					where: {
-						pool: {
-							address: {
-								_in: pools.value.map((pool) => pool.address),
-							},
-						},
-					},
-					limit: 1,
-					order_by: [{ timestamp: "desc" }],
-				},
-				poolStateModel,
-			],
-		})
-		.subscribe({
-			next: ({ poolState }) => {
-				const newPoolState = poolState[0]
-				const currentPoolState = poolsStates.value[newPoolState.poolId]
-
-				if (newPoolState.counter === currentPoolState.counter) return
-
-				if (newPoolState.counter > currentPoolState.counter) {
-					poolsStates.value[newPoolState.poolId] = {
-						...newPoolState,
-						totalLiquidity: BN(newPoolState.totalLiquidity),
-						totalShares: BN(newPoolState.totalShares),
-						withdrawableLiquidity: BN(newPoolState.withdrawableLiquidity),
-					}
-				}
-			},
-			error: console.error,
-		})
-}
-
-const setupSubToEntries = async () => {
-	subEntries.value = await juster.gql
-		.subscription({
-			entryLiquidity: [
-				{
-					where: {
-						pool: {
-							address: {
-								_in: pools.value.map((pool) => pool.address),
-							},
-						},
-						user: { address: { _eq: accountStore.pkh } },
-					},
-				},
-				entryLiquidityModel,
-			],
-		})
-		.subscribe({
-			next: ({ entryLiquidity }) => {
-				entries.value = entryLiquidity
-			},
-			error: console.error,
-		})
-}
-
-const setupSubToPositions = async () => {
-	subPositions.value = await juster.gql
-		.subscription({
-			poolPosition: [
-				{
-					where: {
-						userId: {
-							_eq: accountStore.pkh,
-						},
-					},
-				},
-				poolPositionModel,
-			],
-		})
-		.subscribe({
-			next: ({ poolPosition }) => {
-				poolPosition = poolPosition.map((p) => {
-					return {
-						...p,
-						shares: BN(p.shares),
-					}
-				})
-				positions.value = poolPosition
-			},
-			error: console.error,
-		})
+	try {
+        const data = await fetchPools()
+        pools.value = data
+        isPopulated.value = true
+    } catch (error) {
+        console.error("Failed to populate pools:", error)
+    }
 }
 
 const showAnimation = ref(false)
 onMounted(() => {
 	showAnimation.value = true
-
-	if (Object.keys(juster.pools).length) {
-		init()
-	}
-})
-
-const isInited = ref(false)
-const init = () => {
-	isInited.value = true
-
-	setupSubToEntries()
-	setupSubToPositions()
 	populatePools()
-}
-
-/**
- * Deposits with an amount <1 xtz need manual confirmation
- */
-const handleManualEntryApprove = async (entry) => {
-	const contract = await juster.sdk._tezos.contract.at(entry.pool.address)
-	const transactions = [
-		{
-			kind: "transaction",
-			...contract.methods.approveEntry(entry.entryId).toTransferParams(),
-		},
-	]
-
-	const batch = await juster.sdk._tezos.wallet.batch(transactions)
-	const batchOp = await batch.send()
-}
-
-onUnmounted(() => {
-	if (Object.prototype.hasOwnProperty.call(subEntries.value, "_state") && !subEntries.value?.closed) {
-		subEntries.value.unsubscribe()
-	}
-
-	if (Object.prototype.hasOwnProperty.call(subPositions.value, "_state") && !subPositions.value?.closed) {
-		subPositions.value.unsubscribe()
-	}
-
-	if (Object.prototype.hasOwnProperty.call(subStates.value, "_state") && !subStates.value?.closed) {
-		subStates.value.unsubscribe()
-	}
 })
-
-// watch(
-// 	() => isPopulated.value,
-// 	() => {
-// 		positions.value.forEach((pos) => {
-// 			summaries.value[pos.poolId] = makeSummaryPosition(pos, poolsStates.value[pos.poolId])
-// 		})
-// 	},
-// )
-
-/** Wait for a long initialisation of the pools */
-watch(
-	() => contracts.value,
-	() => {
-		if (contracts.value.length > 1 && !isInited.value) {
-			init()
-		}
-	},
-)
 
 /** Meta */
 const { meta } = useMeta({
 	title: `Liquidity Pools`,
-	description: "Liquidity Pools Managemenet",
+	description: "Liquidity Pools Management",
 })
 </script>
 

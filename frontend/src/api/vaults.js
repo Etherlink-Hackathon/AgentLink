@@ -1,85 +1,90 @@
-import axios from "axios"
-import mockVaults from "./vaults.json"
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000"
+import { flameWager } from "@/services/sdk"
+import { VAULTS_QUERY, VAULT_BY_ADDRESS_QUERY } from "./graphql/queries"
 
 /**
- * Fetch all active vaults (mapped from DEX pools)
+ * Fetch all active vaults with their snapshots
  */
 export const fetchVaults = async () => {
     try {
-        const response = await axios.get(`${API_BASE}/api/vaults`)
-        const vaults = response.data
+        if (!flameWager.gql) {
+            throw new Error("GraphQL client not initialized")
+        }
+
+        const result = await flameWager.gql.query(VAULTS_QUERY).toPromise()
         
-        // Map backend pools to vault structure
-        return vaults.map(vault => ({
-            id: vault.address,
-            address: vault.address,
-            name: vault.name,
-            strategyType: "Cross-DEX Arbitrage",
-            status: vault.status || "active",
-            tvl: vault.tvl || Math.floor(Math.random() * 1000000) + 100000,
-            apy: vault.apy || (Math.random() * 15 + 5).toFixed(1),
-            revenue: vault.revenue || 0,
-            strategies: vault.strategies || 1,
-            tags: ["High Yield", vault.dex, "Etherlink"],
-            poolData: vault
-        }))
+        if (result.error) {
+            throw result.error
+        }
+
+        return result.data.vaults.map(vault => {
+            const latestSnapshot = vault.snapshots[0] || {}
+            const [s0, s1] = (vault.symbol || "ETH/USDC").split("/")
+            
+            return {
+                id: vault.address,
+                address: vault.address,
+                name: vault.name,
+                symbol: vault.symbol,
+                token0: { symbol: s0 },
+                token1: { symbol: s1 },
+                strategyType: "Cross-DEX Arbitrage",
+                status: "active",
+                tvl: latestSnapshot.totalAssets || 0,
+                apy: latestSnapshot.apy || 0,
+                revenue: latestSnapshot.yield1d || 0,
+                created_at: vault.createdAt,
+                tags: ["High Yield", "Etherlink", "Arbitrage"],
+                asset_address: vault.assetAddress,
+                poolData: {
+                    token0: { symbol: s0 },
+                    token1: { symbol: s1 },
+                    dex: "Etherlink"
+                }
+            }
+        })
     } catch (error) {
-        console.warn("Backend unavailable, using mock vaults.")
-        return mockVaults.map(vault => ({
-            id: vault.address,
-            address: vault.address || process.env.VITE_VAULT_ADDRESS,
-            name: vault.name,
-            strategyType: "Cross-DEX Arbitrage",
-            status: vault.status,
-            tvl: vault.tvl,
-            apy: vault.apy,
-            revenue: vault.revenue,
-            strategies: vault.strategies,
-            tags: ["High Yield", vault.dex, "Etherlink"],
-            poolData: vault
-        }))
+        console.error("Failed to fetch vaults via GraphQL:", error)
+        return []
     }
 }
 
 /**
- * Fetch a single vault by ID
+ * Fetch a single vault by its address
  */
-export const fetchVaultById = async (id) => {
+export const fetchVaultById = async (address) => {
     try {
-        const response = await axios.get(`${API_BASE}/api/vaults`)
-        const vault = response.data.find(v => v.address === id)
+        if (!flameWager.gql) {
+            throw new Error("GraphQL client not initialized")
+        }
+
+        const result = await flameWager.gql.query(VAULT_BY_ADDRESS_QUERY, { address }).toPromise()
         
+        if (result.error) {
+            throw result.error
+        }
+
+        const vault = result.data.vault
         if (!vault) throw new Error("Vault not found")
 
-        return {
-            id: vault.address,
-            address: vault.address,
-            name: vault.name,
-            strategyType: "Cross-DEX Arbitrage",
-            status: "active",
-            tvl: vault.tvl || Math.floor(Math.random() * 1000000) + 100000,
-            apy: vault.apy || (Math.random() * 15 + 5).toFixed(1),
-            tags: ["High Yield", vault.dex, "Etherlink"],
-            description: `This strategy exploits price discrepancies for the Etherlink Dex Pools.`,
-            poolData: vault
-        }
-    } catch (error) {
-        const vault = mockVaults.find(v => v.address === id)
-        if (!vault) return null
+        const latestSnapshot = vault.snapshots[0] || {}
 
         return {
             id: vault.address,
             address: vault.address,
             name: vault.name,
+            symbol: vault.symbol,
             strategyType: "Cross-DEX Arbitrage",
-            status: vault.status,
-            tvl: vault.tvl,
-            apy: vault.apy,
-            tags: ["High Yield", vault.dex, "Etherlink"],
-            description: `[MOCK] This strategy exploits price discrepancies for the Etherlink Dex Pools.`,
-            poolData: vault
+            status: "active",
+            tvl: latestSnapshot.totalAssets || 0,
+            apy: latestSnapshot.apy || 0,
+            tags: ["High Yield", "Etherlink", "Arbitrage"],
+            description: `This strategy exploits price discrepancies for the Etherlink Dex Pools.`,
+            yield_history: vault.yields || [],
+            created_at: vault.createdAt,
+            asset_address: vault.assetAddress
         }
+    } catch (error) {
+        console.error(`Failed to fetch vault ${address} via GraphQL:`, error)
+        return null
     }
 }

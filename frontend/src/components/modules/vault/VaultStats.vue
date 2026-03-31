@@ -8,17 +8,17 @@ const props = defineProps({
 	<div :class="$style.wrapper">
 		<div :class="$style.stat">
 			<Text size="12" weight="600" color="tertiary" :class="$style.label">TOTAL VALUE LOCKED</Text>
-			<Text size="24" weight="700" color="primary">${{ vault.tvl.toLocaleString() }}</Text>
+			<Text size="24" weight="700" color="primary">${{ (vault?.tvl || 0).toLocaleString() }}</Text>
 		</div>
 		<div :class="$style.divider" />
 		<div :class="$style.stat">
 			<Text size="12" weight="600" color="tertiary" :class="$style.label">AVERAGE APY</Text>
-			<Text size="24" weight="700" color="green">{{ vault.apy }}%</Text>
+			<Text size="24" weight="700" color="green">{{ vault?.apy || 0 }}%</Text>
 		</div>
 		<div :class="$style.divider" />
 		<div :class="$style.stat">
 			<Text size="12" weight="600" color="tertiary" :class="$style.label">24H YIELD REVENUE</Text>
-			<Text size="24" weight="700" color="primary">${{ (vault.tvl * 0.0005).toLocaleString() }}</Text>
+			<Text size="24" weight="700" color="primary">${{ ((vault?.tvl || 0) * 0.0005).toLocaleString() }}</Text>
 		</div>
 		<div :class="$style.divider" />
 		<div :class="$style.stat">

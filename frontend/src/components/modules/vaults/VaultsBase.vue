@@ -23,23 +23,15 @@ import { analytics } from "@sdk"
  * API
  */
 import { fetchVaults } from "@/api/vaults"
+import { fetchTokens } from "@/api/tokens"
+
 
 export default defineComponent({
 	name: "VaultsBase",
 
 	setup() {
 		const defaultFilters = {
-			symbols: [
-				{ name: "ETH", active: false },
-				{ name: "WBTC", active: false },
-				{ name: "XTZ", active: false },
-				{ name: "USDC", active: false },
-				{ name: "USDT", active: false },
-				{ name: "LYZI", active: false },
-				{ name: "TZPEPE", active: false },
-				{ name: "mBASIS", active: false },
-				{ name: "mTBILL", active: false },
-			],
+			symbols: [],
 			statuses: [
 				{ name: "New", active: false, icon: "event_new", color: "purple" },
 				{ name: "Running", active: false, icon: "event_active", color: "yellow" },
@@ -83,8 +75,8 @@ export default defineComponent({
 					.map((s) => s.name)
 				const symbolMatch =
 					activeSymbols.length === 0 ||
-					activeSymbols.includes(vault.token0.symbol) ||
-					activeSymbols.includes(vault.token1.symbol)
+					(vault.token0 && activeSymbols.includes(vault.token0.symbol)) ||
+					(vault.token1 && activeSymbols.includes(vault.token1.symbol))
 
 				// Status filter
 				const activeStatuses = filters.statuses
@@ -124,10 +116,22 @@ export default defineComponent({
 			analytics.log("onPage", { name: "Vaults" })
 
 			try {
-				const data = await fetchVaults()
-				allVaults.value = data
+				const [vaults, tokens] = await Promise.all([
+					fetchVaults(),
+					fetchTokens()
+				])
+				
+				allVaults.value = vaults
+				
+				// Update symbols filter dynamically
+				if (tokens.length) {
+					filters.symbols = tokens.map(t => ({
+						name: t.symbol,
+						active: false
+					}))
+				}
 			} catch (error) {
-				console.error("Failed to fetch vaults:", error)
+				console.error("Failed to fetch data:", error)
 			} finally {
 				isLoading.value = false
 			}

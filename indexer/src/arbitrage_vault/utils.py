@@ -18,6 +18,24 @@ _ERC20_ABI = [
     {'inputs': [], 'name': 'decimals', 'outputs': [{'type': 'uint8'}], 'stateMutability': 'view', 'type': 'function'},
 ]
 
+_VAULT_ABI = [
+    {
+        'inputs': [],
+        'name': 'totalAssets',
+        'outputs': [{'type': 'uint256'}],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {
+        'inputs': [],
+        'name': 'totalSupply',
+        'outputs': [{'type': 'uint256'}],
+        'stateMutability': 'view',
+        'type': 'function',
+    },
+    {'inputs': [], 'name': 'asset', 'outputs': [{'type': 'address'}], 'stateMutability': 'view', 'type': 'function'},
+]
+
 
 def _get_w3() -> Web3:
     rpc_url = os.environ.get('RPC_URL', 'https://node.mainnet.etherlink.com')
