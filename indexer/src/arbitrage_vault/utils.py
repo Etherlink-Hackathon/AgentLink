@@ -6,35 +6,17 @@ from typing import Any
 import httpx
 from web3 import Web3
 
-logger = logging.getLogger(__name__)
-
-GECKO_API_BASE = 'https://api.geckoterminal.com/api/v2'
-
-# ─── Minimal ABIs for on-chain metadata ──────────────────────────────────────
-
 _ERC20_ABI = [
     {'inputs': [], 'name': 'name', 'outputs': [{'type': 'string'}], 'stateMutability': 'view', 'type': 'function'},
     {'inputs': [], 'name': 'symbol', 'outputs': [{'type': 'string'}], 'stateMutability': 'view', 'type': 'function'},
     {'inputs': [], 'name': 'decimals', 'outputs': [{'type': 'uint8'}], 'stateMutability': 'view', 'type': 'function'},
 ]
 
-_VAULT_ABI = [
-    {
-        'inputs': [],
-        'name': 'totalAssets',
-        'outputs': [{'type': 'uint256'}],
-        'stateMutability': 'view',
-        'type': 'function',
-    },
-    {
-        'inputs': [],
-        'name': 'totalSupply',
-        'outputs': [{'type': 'uint256'}],
-        'stateMutability': 'view',
-        'type': 'function',
-    },
-    {'inputs': [], 'name': 'asset', 'outputs': [{'type': 'address'}], 'stateMutability': 'view', 'type': 'function'},
-]
+logger = logging.getLogger(__name__)
+
+GECKO_API_BASE = 'https://api.geckoterminal.com/api/v2'
+ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+DEFAULT_STRATEGIST = '0x0000000000000000000000000000000000000000'
 
 
 def _get_w3() -> Web3:
@@ -178,22 +160,32 @@ async def fetch_pool_metadata(pool_address: str) -> dict[str, Any]:
 async def get_xtz_price() -> float:
     """
     Fetch current XTZ price in USD via GeckoTerminal.
+    Uses WXTZ (0xc9b53ab2679f573e480d01e0f49e2d7838523eab) as a proxy for XTZ.
     """
-    url = f'{GECKO_API_BASE}/networks/etherlink/pools/0x0000000000000000000000000000000000000000'  # Placeholder for a deep liquidity pool
-    # More robust: fetch from a known stable pair or the native token price endpoint
-    url = 'https://api.geckoterminal.com/api/v2/simple/networks/etherlink/token_price/0x0000000000000000000000000000000000000000'  # WXTZ
+    wxtz_address = '0xc9b53ab2679f573e480d01e0f49e2d7838523eab'
+    url = f'{GECKO_API_BASE}/simple/networks/etherlink/token_price/{wxtz_address}'
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(url, timeout=10.0)
-            response.raise_for_status()
-            data = response.json()
-            # GeckoTerminal simple price returns { data: { id: ..., type: ..., attributes: { token_prices: { addr: price } } } }
-            prices = data.get('data', {}).get('attributes', {}).get('token_prices', {})
-            for _addr, price in prices.items():
-                return float(price)
+            response = await client.get(url, timeout=10.0, headers={'Accept': 'application/json;version=20230302'})
+            if response.status_code == 200:
+                data = response.json()
+                prices = data.get('data', {}).get('attributes', {}).get('token_prices', {})
+                price = prices.get(wxtz_address)
+                if price:
+                    return float(price)
+
+            # Fallback: discover trending pools and find WXTZ
+            pools = await discover_pools(max_pages=1)
+            for pool in pools:
+                if pool['token0']['address'].lower() == wxtz_address:
+                    return float(pool['token0'].get('price_usd') or 0)
+                if pool['token1']['address'].lower() == wxtz_address:
+                    return float(pool['token1'].get('price_usd') or 0)
+
+            return 0.34  # Current sane default if all else fails
         except Exception as e:
             logger.error('Error fetching XTZ price: %s', e)
-            return 1.5  # Fallback to a sane default
+            return 0.34
 
 
 async def get_gas_price(rpc_url: str) -> int:

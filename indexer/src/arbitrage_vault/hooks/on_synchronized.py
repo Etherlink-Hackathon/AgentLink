@@ -1,14 +1,21 @@
+from __future__ import annotations
+
+import asyncio
 import json
 import logging
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
+from typing import ClassVar
 
 from arbitrage_vault.agent.gemini_soul import GeminiSoul
 from arbitrage_vault.agent.strategy import ArbitrageHeuristics
 from arbitrage_vault.models import AgentDecision
-from dipdup.context import HookContext
 from eth_account import Account
 from web3 import Web3
+
+if TYPE_CHECKING:
+    from dipdup.context import HookContext
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +24,13 @@ _background_tasks = set()
 
 
 class AgentExecutor:
-    _instance = None
-    _semaphore = asyncio.Semaphore(1)
+    _instance: ClassVar[AgentExecutor | None] = None
+    _semaphore: ClassVar[asyncio.Semaphore] = asyncio.Semaphore(1)
 
-    DEX_TYPE_MAP = {
+    DEX_TYPE_MAP: ClassVar[dict[str, int]] = {
         'uniswap v2': 0,
         'uniswap v3': 1,
-        'camelot v3': 1,  # Camelot V3 is Uniswap V3 fork
+        'camelot v3': 1,
         'pancakeswap v3': 1,
         'curve': 2,
         'universal router': 3,
@@ -37,7 +44,7 @@ class AgentExecutor:
 
         # Load Vault ABI
         abi_path = Path(__file__).parent.parent / 'abi' / 'ArbitrageVault' / 'abi.json'
-        with open(abi_path) as f:
+        with abi_path.open() as f:
             self.vault_abi = json.load(f)
 
     @classmethod
@@ -101,7 +108,7 @@ class AgentExecutor:
         # 1. Construct Steps
         # A standard arbitrage: Asset -> Buy Token X -> Sell for Asset
         # For simplicity, we assume the vault asset is the base token of the pair (or quote)
-        
+
         buy_pool = opp['buy_pool']
         sell_pool = opp['sell_pool']
 
@@ -110,7 +117,7 @@ class AgentExecutor:
         # For now, we assume a simple 2-hop: Vault Asset -> Token X -> Vault Asset
         # In a real environment, we'd resolve this from the Vault's .asset() call
         vault_asset = await vault_contract.functions.asset().call()
-        
+
         # Determine the intermediate token (Token X)
         t0 = self.w3.to_checksum_address(buy_pool['token0']['address'])
         t1 = self.w3.to_checksum_address(buy_pool['token1']['address'])
@@ -119,10 +126,10 @@ class AgentExecutor:
         steps = [
             {
                 'dex': self.w3.to_checksum_address(buy_pool['address']),
-                'dexType': self.DEX_TYPE_MAP.get(buy_pool.get('dex_name', '').lower(), 1), # Default to V3 if unknown
+                'dexType': self.DEX_TYPE_MAP.get(buy_pool.get('dex_name', '').lower(), 1),  # Default to V3 if unknown
                 'tokenIn': vault_asset,
                 'tokenOut': token_x,
-                'data': b'', # Use default pathing in contract
+                'data': b'',  # Use default pathing in contract
             },
             {
                 'dex': self.w3.to_checksum_address(sell_pool['address']),
@@ -130,11 +137,11 @@ class AgentExecutor:
                 'tokenIn': token_x,
                 'tokenOut': vault_asset,
                 'data': b'',
-            }
+            },
         ]
 
         # 2. Params
-        amount_in = 10**18 # 1 unit default for testing or use a percentage of vault balance
+        amount_in = 10**18  # 1 unit default for testing or use a percentage of vault balance
         # In a production agent, we'd fetch the actual vault balance
         try:
             amount_in = await vault_contract.functions.totalAssets().call()
@@ -143,38 +150,39 @@ class AgentExecutor:
         except Exception:
             pass
 
-        min_profit = int(opp.get('net_profit_usd', 0) * 10**18 / opp.get('xtz_price', 1.5)) # Rough conversion to native
-        if min_profit < 0: min_profit = 0
+        min_profit = int(
+            opp.get('net_profit_usd', 0) * 10**18 / opp.get('xtz_price', 1.5)
+        )  # Rough conversion to native
+        if min_profit < 0:
+            min_profit = 0
 
         # 3. Build Tx
         nonce = self.w3.eth.get_transaction_count(self.account.address)
         gas_price = self.w3.eth.gas_price
-        
+
         # High-performance: Add 10% premium to gas to ensure inclusion
         fast_gas_price = int(gas_price * 1.1)
 
-        tx = vault_contract.functions.executeMultiHop(
-            steps,
-            amount_in,
-            min_profit
-        ).build_transaction({
-            'from': self.account.address,
-            'nonce': nonce,
-            'gas': 1_200_000, # Conservative estimate for multi-hop
-            'gasPrice': fast_gas_price,
-            'chainId': 42793,
-        })
+        tx = vault_contract.functions.executeMultiHop(steps, amount_in, min_profit).build_transaction(
+            {
+                'from': self.account.address,
+                'nonce': nonce,
+                'gas': 1_200_000,  # Conservative estimate for multi-hop
+                'gasPrice': fast_gas_price,
+                'chainId': 42793,
+            }
+        )
 
         # 4. Sign and Send
         signed_tx = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        
+
         if os.getenv('DRY_RUN') == 'true':
             logger.info('DRY RUN: Transaction signed, skipping broadcast. Decision %s', decision.id)
             return f'0x_dry_run_hash_{decision.id}'
 
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
         logger.info('🔔 Arbitrage transaction sent: %s', tx_hash.hex())
-        
+
         return tx_hash.hex()
 
 

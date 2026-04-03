@@ -11,22 +11,20 @@ export const fetchVaults = async () => {
         }
 
         const result = await flameWager.gql.query(VAULTS_QUERY).toPromise()
-        
+
         if (result.error) {
             throw result.error
         }
 
         return result.data.vaults.map(vault => {
             const latestSnapshot = vault.snapshots[0] || {}
-            const [s0, s1] = (vault.symbol || "ETH/USDC").split("/")
-            
+
             return {
                 id: vault.address,
                 address: vault.address,
+                creator: vault.creator,
                 name: vault.name,
                 symbol: vault.symbol,
-                token0: { symbol: s0 },
-                token1: { symbol: s1 },
                 strategyType: "Cross-DEX Arbitrage",
                 status: "active",
                 tvl: latestSnapshot.totalAssets || 0,
@@ -35,11 +33,7 @@ export const fetchVaults = async () => {
                 created_at: vault.createdAt,
                 tags: ["High Yield", "Etherlink", "Arbitrage"],
                 asset_address: vault.assetAddress,
-                poolData: {
-                    token0: { symbol: s0 },
-                    token1: { symbol: s1 },
-                    dex: "Etherlink"
-                }
+                vaultsPools: vault.vaultsPools
             }
         })
     } catch (error) {
@@ -58,7 +52,7 @@ export const fetchVaultById = async (address) => {
         }
 
         const result = await flameWager.gql.query(VAULT_BY_ADDRESS_QUERY, { address }).toPromise()
-        
+
         if (result.error) {
             throw result.error
         }
@@ -81,7 +75,8 @@ export const fetchVaultById = async (address) => {
             description: `This strategy exploits price discrepancies for the Etherlink Dex Pools.`,
             yield_history: vault.yields || [],
             created_at: vault.createdAt,
-            asset_address: vault.assetAddress
+            asset_address: vault.assetAddress,
+            vaultsPools: vault.vaultsPools
         }
     } catch (error) {
         console.error(`Failed to fetch vault ${address} via GraphQL:`, error)

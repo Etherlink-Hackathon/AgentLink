@@ -21,7 +21,7 @@ import { useAccountStore } from "@store/account"
  * Services
  */
 import { analytics } from "@sdk"
-import { getCurrencyIcon } from "@utils/misc"
+import { getCurrencyIcon, getDexIcon } from "@utils/misc"
 
 const props = defineProps({
 	filters: { type: Object },
@@ -152,6 +152,13 @@ const handleBlur = (target) => {
 const handleKeydown = (e) => {
 	if (e.key === "-" || e.key === "e") e.preventDefault()
 }
+
+/** Show/Hide pairs */
+const showAllPairs = ref(false)
+const visiblePairs = computed(() => {
+	if (!props.filters.pairs) return []
+	return showAllPairs.value ? props.filters.pairs : props.filters.pairs.slice(0, 4)
+})
 </script>
 
 <template>
@@ -185,24 +192,58 @@ const handleKeydown = (e) => {
 
 		<template v-if="selectedTab == 'Basic'">
 			<div :class="$style.block">
-				<div :class="$style.subtitle">Symbol</div>
+				<div :class="$style.subtitle">Trading Pairs</div>
 
 				<div :class="$style.badges">
 					<div
-						v-for="(symbol, index) in filters.symbols"
+						v-for="(pair, index) in visiblePairs"
 						:key="index"
-						@click="$emit('onSelect', 'symbols', symbol)"
+						@click="$emit('onSelect', 'pairs', pair)"
 						:class="[
 							$style.badge,
 							$style.symbol,
-							symbol.active && $style.active,
+							pair.active && $style.active,
 						]"
 					>
-						<img
-							:src="getCurrencyIcon(symbol.name.split('-')[0])"
-							alt="symbol"
-						/>
-						{{ symbol.name.replace("-USD", "") }}
+						<div :class="$style.pair_icons">
+							<img
+								:src="getCurrencyIcon(pair.tokenA.symbol)"
+								alt="tokenA"
+							/>
+							<img
+								:src="getCurrencyIcon(pair.tokenB.symbol)"
+								alt="tokenB"
+							/>
+						</div>
+						{{ pair.name }}
+					</div>
+				</div>
+
+				<div 
+					v-if="filters.pairs.length > 4" 
+					@click="showAllPairs = !showAllPairs" 
+					:class="$style.see_more"
+				>
+					<Icon :name="showAllPairs ? 'arrow_up' : 'arrow_down'" size="12" />
+					{{ showAllPairs ? 'Show less' : `See all ${filters.pairs.length} pairs` }}
+				</div>
+			</div>
+            
+            			<div :class="$style.block">
+				<div :class="$style.subtitle">DEX Protocols</div>
+
+				<div :class="$style.badges">
+					<div
+						v-for="(dex, index) in filters.dexs"
+						:key="index"
+						@click="$emit('onSelect', 'dexs', dex)"
+						:class="[
+							$style.badge,
+							dex.active && $style.active,
+						]"
+					>
+						<img v-if="getDexIcon(dex.icon)" :src="getDexIcon(dex.icon)" :class="$style.pool_icon_img" />
+					{{ dex.name }}
 					</div>
 				</div>
 			</div>
@@ -374,8 +415,9 @@ const handleKeydown = (e) => {
 						<Icon
 							:name="author.icon"
 							size="14"
+							:viewBox="author.icon === 'logo_symbol' ? '0 0 100 100' : '0 0 24 24'"
 							:class="
-								author.name === 'Juster' && $style.brand_color
+								author.name === 'AgentLink' && $style.brand_color
 							"
 						/>
 						{{ author.name }}
@@ -397,24 +439,6 @@ const handleKeydown = (e) => {
 						]"
 					>
 						{{ strategy.name }}
-					</div>
-				</div>
-			</div>
-
-			<div :class="$style.block">
-				<div :class="$style.subtitle">DEX Protocols</div>
-
-				<div :class="$style.badges">
-					<div
-						v-for="(dex, index) in filters.dexs"
-						:key="index"
-						@click="$emit('onSelect', 'dexs', dex)"
-						:class="[
-							$style.badge,
-							dex.active && $style.active,
-						]"
-					>
-						{{ dex.name }}
 					</div>
 				</div>
 			</div>
@@ -639,6 +663,30 @@ const handleKeydown = (e) => {
 	gap: 8px;
 }
 
+.see_more {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 12px;
+	
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--blue);
+	cursor: pointer;
+	
+	transition: opacity 0.2s ease;
+}
+
+.see_more:hover {
+	opacity: 0.8;
+}
+
+.see_more svg {
+	fill: var(--blue);
+}
+
+
+
 .badge {
 	display: flex;
 	align-items: center;
@@ -701,6 +749,23 @@ const handleKeydown = (e) => {
 	width: 14px;
 	height: 14px;
 	border-radius: 50%;
+}
+
+.pair_icons {
+	display: flex;
+	align-items: center;
+	margin-right: 4px;
+}
+
+.pair_icons img {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	border: 1.5px solid var(--card-bg);
+}
+
+.pair_icons img:nth-child(2) {
+	margin-left: -8px;
 }
 
 .range_picker {
@@ -835,5 +900,11 @@ const handleKeydown = (e) => {
 .avatar {
 	width: 14px;
 	height: 14px;
+}
+
+.pool_icon_img {
+	width: 18px;
+	height: 18px;
+	object-fit: contain;
 }
 </style>

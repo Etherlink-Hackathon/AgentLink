@@ -2,25 +2,30 @@ import asyncio
 import logging
 import os
 import sys
-from decimal import Decimal
+from pathlib import Path
 
 # Add the src directory to sys.path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 
+from arbitrage_vault.agent.arbitrage import detect_arbitrage
+from arbitrage_vault.agent.arbitrage import evaluate_profitability
+from arbitrage_vault.models import Agent
+from arbitrage_vault.models import AgentDecision
+from arbitrage_vault.models import Vault
+from arbitrage_vault.utils import discover_pools
+from arbitrage_vault.utils import extract_prices
+from arbitrage_vault.utils import get_gas_price
+from arbitrage_vault.utils import get_xtz_price
 from tortoise import Tortoise
-from arbitrage_vault.agent.arbitrage import detect_arbitrage, evaluate_profitability
-from arbitrage_vault.utils import discover_pools, extract_prices, get_gas_price, get_xtz_price
-from arbitrage_vault.models import Agent, AgentDecision, Vault
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('Executor')
 
+
 async def init_db():
-    db_url = f"postgres://{os.getenv('POSTGRES_USER', 'huydo')}:{os.getenv('POSTGRES_PASSWORD', 'huydo2105')}@{os.getenv('POSTGRES_HOST', 'localhost')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'huydo')}"
-    await Tortoise.init(
-        db_url=db_url,
-        modules={'models': ['arbitrage_vault.models']}
-    )
+    db_url = f'postgres://{os.getenv("POSTGRES_USER", "huydo")}:{os.getenv("POSTGRES_PASSWORD", "huydo2105")}@{os.getenv("POSTGRES_HOST", "localhost")}:{os.getenv("POSTGRES_PORT", "5432")}/{os.getenv("POSTGRES_DB", "huydo")}'
+    await Tortoise.init(db_url=db_url, modules={'models': ['arbitrage_vault.models']})
+
 
 async def run_execution():
     rpc_url = os.getenv('RPC_URL', 'https://node.mainnet.etherlink.com')
@@ -28,16 +33,16 @@ async def run_execution():
     strategist_address = os.getenv('STRATEGIST_ADDRESS', '0x0000000000000000000000000000000000000000')
 
     await init_db()
-    
-    logger.info("🚀 Starting Manual Arbitrage Execution Process...")
-    
+
+    logger.info('🚀 Starting Manual Arbitrage Execution Process...')
+
     # 1. Fetch context
     xtz_price = await get_xtz_price()
     gas_price = await get_gas_price(rpc_url)
-    
+
     vault = await Vault.get_or_none(address=vault_address)
     if not vault:
-        logger.error(f"Vault {vault_address} not found in database. Please run indexer first.")
+        logger.error('Vault %s not found in database. Please run indexer first.', vault_address)
         return
 
     agent, _ = await Agent.get_or_create(
@@ -46,8 +51,8 @@ async def run_execution():
         defaults={
             'name': 'Manual Test Agent',
             'details': {'role': 'TESTER'},
-            'strategy_config': {'min_profit_usd': 0.1, 'max_slippage_bps': 50}
-        }
+            'strategy_config': {'min_profit_usd': 0.1, 'max_slippage_bps': 50},
+        },
     )
 
     # 2. Find opportunities
@@ -55,35 +60,39 @@ async def run_execution():
     price_map = extract_prices(pools)
     opportunities = detect_arbitrage(price_map)
     evaluations = await evaluate_profitability(
-        opportunities, 
-        xtz_price_usd=xtz_price, 
+        opportunities,
+        xtz_price_usd=xtz_price,
         gas_price_wei=gas_price,
-        min_profit_margin=0.0001 # Be aggressive for testing
+        min_profit_margin=0.0001,  # Be aggressive for testing
     )
-    
+
     # 3. Filter for profitable
     profitable = [ev for ev in evaluations if ev['decision'] == 'EXECUTE']
-    
+
     if not profitable:
-        logger.warning("No profitable opportunities found right now. Try again later or lower profit thresholds.")
+        logger.warning('No profitable opportunities found right now. Try again later or lower profit thresholds.')
         # Optional: Force execute the best one for testing
         if evaluations:
-            logger.info("FORCING execution of the best available opportunity for testing...")
+            logger.info('FORCING execution of the best available opportunity for testing...')
             best_ev = evaluations[0]
         else:
             return
     else:
         best_ev = profitable[0]
-        
+
     opp = best_ev['opportunity']
-    
+
     # 4. Create Decision
-    logger.info(f"🔔 Creating execution decision for {opp['pair_id']} (Expected Profit: ${best_ev['net_profit_usd']:.4f})")
-    
+    logger.info(
+        '🔔 Creating execution decision for %s (Expected Profit: $%.4f)',
+        opp['pair_id'],
+        best_ev['net_profit_usd'],
+    )
+
     decision = await AgentDecision.create(
         vault=vault,
         agent=agent,
-        status='EXECUTE', # This triggers the background listener in on_synchronized.py
+        status='EXECUTE',  # This triggers the background listener in on_synchronized.py
         heuristics_verdict='APPROVE',
         opportunity_details={
             'pair_id': opp['pair_id'],
@@ -93,28 +102,28 @@ async def run_execution():
             'sell_pool': opp['sell_pool'],
             'xtz_price': xtz_price,
             'gas_price_gwei': gas_price / 10**9,
-        }
+        },
     )
-    
-    logger.info(f"✅ Decision {decision.id} created with status EXECUTE.")
-    logger.info("Waiting for AgentExecutor to pick it up...")
-    
+
+    logger.info('✅ Decision %s created with status EXECUTE.', decision.id)
+    logger.info('Waiting for AgentExecutor to pick it up...')
+
     # 5. Monitor
     for _ in range(30):
         await asyncio.sleep(2)
         await decision.refresh_from_db()
         if decision.status == 'SENT':
-            logger.info(f"🎉 SUCCESS! Arbitrage executed. TX: {decision.tx_hash}")
+            logger.info('🎉 SUCCESS! Arbitrage executed. TX: %s', decision.tx_hash)
             break
-        elif decision.status == 'FAILED':
-            logger.error(f"❌ Execution failed: {decision.error}")
+        if decision.status == 'FAILED':
+            logger.error('❌ Execution failed: %s', decision.error)
             break
-        else:
-            logger.info(f"Current status: {decision.status}...")
+        logger.info('Current status: %s...', decision.status)
     else:
-        logger.warning("Timeout waiting for execution. Is the indexer running?")
+        logger.warning('Timeout waiting for execution. Is the indexer running?')
 
     await Tortoise.close_connections()
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     asyncio.run(run_execution())

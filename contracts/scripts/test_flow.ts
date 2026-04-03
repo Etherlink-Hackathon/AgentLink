@@ -25,7 +25,7 @@ async function main() {
     console.log(`🚀 Executing flow with account: ${deployer.address}`);
 
     // Load setup data
-    const poolsPath = path.join(__dirname, "../test/etherlink_pools.json");
+    const poolsPath = path.join(__dirname, "../../etherlink_pools.json");
     const pools = JSON.parse(fs.readFileSync(poolsPath, "utf8"));
 
     const ETHERLINK_WXTZ = process.env.WXTZ_ADDRESS?.toLowerCase();

@@ -24,6 +24,7 @@ import { analytics } from "@sdk"
  */
 import { fetchVaults } from "@/api/vaults"
 import { fetchTokens } from "@/api/tokens"
+import { fetchPools } from "@/api/pools"
 
 
 export default defineComponent({
@@ -31,16 +32,18 @@ export default defineComponent({
 
 	setup() {
 		const defaultFilters = {
-			symbols: [],
+			pairs: [],
 			statuses: [
 				{ name: "New", active: false, icon: "event_new", color: "purple" },
 				{ name: "Running", active: false, icon: "event_active", color: "yellow" },
 				{ name: "Finished", active: false, icon: "event_finished", color: "green" },
 			],
 			dexs: [
-				{ name: "V3Swap", active: false },
-				{ name: "EtherlinkDex", active: false },
-				{ name: "OmniPool", active: false },
+				{ name: "Oku Trade", icon: "oku-trade-etherlink", active: false },
+				{ name: "Curve", icon: "curve_etherlink", active: false },
+				{ name: "Iguana Dex", icon: "iguanadex", active: false },
+				{ name: "Iguana Dex V2", icon: "iguanadex_v2", active: false },
+				{ name: "Tachyswap", icon: "tachyswap", active: false },
 			],
 			strategies: [
 				{ name: "Arbitrage", active: false },
@@ -52,6 +55,33 @@ export default defineComponent({
 				participants: [],
 				period: null,
 			},
+			author: [
+				{
+					name: "AgentLink",
+					icon: "logo_symbol",
+					active: true,
+				},
+				{
+					name: "Users",
+					icon: "users",
+					active: false,
+				},
+			],
+
+			misc: {
+				startingToday: {
+					active: false,
+					disabled: false,
+				},
+				moreThan: {
+					active: false,
+					disabled: false,
+				},
+				targetDynamics: {
+					active: false,
+					disabled: false,
+				},
+			}
 		}
 
 		const filters = reactive(JSON.parse(JSON.stringify(defaultFilters)))
@@ -69,14 +99,21 @@ export default defineComponent({
 
 		const filteredVaults = computed(() => {
 			return allVaults.value.filter((vault) => {
-				// Symbol filter
-				const activeSymbols = filters.symbols
-					.filter((s) => s.active)
-					.map((s) => s.name)
-				const symbolMatch =
-					activeSymbols.length === 0 ||
-					(vault.token0 && activeSymbols.includes(vault.token0.symbol)) ||
-					(vault.token1 && activeSymbols.includes(vault.token1.symbol))
+				// Pair filter
+				const activePairs = filters.pairs
+					.filter((p) => p.active)
+					.map((p) => p.name)
+				
+				const pairMatch =
+					activePairs.length === 0 ||
+					vault.vaultsPools.some(vp => {
+						const pool = vp.dexPools
+						if (!pool || !pool.tokenA || !pool.tokenB) return false
+						
+						const symbols = [pool.tokenA.symbol, pool.tokenB.symbol].sort()
+						const pairName = symbols.join("/")
+						return activePairs.includes(pairName)
+					})
 
 				// Status filter
 				const activeStatuses = filters.statuses
@@ -91,9 +128,10 @@ export default defineComponent({
 					.filter((d) => d.active)
 					.map((d) => d.name)
 				const dexMatch =
-					activeDexs.length === 0 || activeDexs.includes(vault.dex)
+					activeDexs.length === 0 || 
+					vault.vaultsPools.some(vp => activeDexs.includes(vp.dexPools.dex))
 
-				return symbolMatch && statusMatch && dexMatch
+				return pairMatch && statusMatch && dexMatch
 			})
 		})
 
@@ -116,19 +154,32 @@ export default defineComponent({
 			analytics.log("onPage", { name: "Vaults" })
 
 			try {
-				const [vaults, tokens] = await Promise.all([
+				const [vaults, pools] = await Promise.all([
 					fetchVaults(),
-					fetchTokens()
+					fetchPools()
 				])
 				
 				allVaults.value = vaults
 				
-				// Update symbols filter dynamically
-				if (tokens.length) {
-					filters.symbols = tokens.map(t => ({
-						name: t.symbol,
-						active: false
-					}))
+				// Update pairs filter dynamically from whitelisted pools
+				if (pools.length) {
+					const uniquePairs = new Map()
+					pools.forEach(pool => {
+						if (!pool.token_a || !pool.token_b) return
+						
+						const symbols = [pool.token_a.symbol, pool.token_b.symbol].sort()
+						const pairName = symbols.join("/")
+						
+						if (!uniquePairs.has(pairName)) {
+							uniquePairs.set(pairName, {
+								name: pairName,
+								tokenA: symbols[0] === pool.token_a.symbol ? pool.token_a : pool.token_b,
+								tokenB: symbols[0] === pool.token_a.symbol ? pool.token_b : pool.token_a,
+								active: false
+							})
+						}
+					})
+					filters.pairs = Array.from(uniquePairs.values())
 				}
 			} catch (error) {
 				console.error("Failed to fetch data:", error)

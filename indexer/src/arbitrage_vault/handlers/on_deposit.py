@@ -1,6 +1,8 @@
 from arbitrage_vault.models import UserAction
 from arbitrage_vault.models import Vault
 from arbitrage_vault.types.ArbitrageVault.evm_events.deposit import DepositPayload
+from arbitrage_vault.utils import DEFAULT_STRATEGIST
+from arbitrage_vault.utils import ZERO_ADDRESS
 from dipdup.context import HandlerContext
 from dipdup.models.evm import EvmEvent
 
@@ -14,7 +16,9 @@ async def on_deposit(
         defaults={
             'name': 'Etherlink Arbitrage Vault',
             'symbol': 'EAV',
-            'asset_address': '0x0000000000000000000000000000000000000000',
+            'asset_address': ZERO_ADDRESS,
+            'creator': event.payload.sender,
+            'strategist': DEFAULT_STRATEGIST,
         },
     )
 

@@ -18,23 +18,45 @@ export const TOKENS_QUERY = `
  */
 export const VAULTS_QUERY = `
   query GetVaults {
-    vaults: vaults(order_by: { name: asc }) {
-      address
-      name
-      symbol
-      assetAddress
-      createdAt
-      snapshots: snapshots(order_by: { timestamp: desc }, limit: 1) {
-        totalAssets
-        totalSupply
-        yield1d
-        yield1w
-        yield1m
-        apy
-        timestamp
+  vaults: vaults(order_by: {name: asc}) {
+    address
+    name
+    symbol
+    assetAddress
+    createdAt
+    snapshots: snapshots(order_by: {timestamp: desc}, limit: 1) {
+      totalAssets
+      totalSupply
+      yield1d
+      yield1w
+      yield1m
+      apy
+      timestamp
+      vaultId
+    }
+    strategist
+    creator
+    vaultsPools {
+      dexPools {
+        address
+        name
+        tokenA {
+          address
+          decimals
+          name
+          symbol
+        }
+        tokenB {
+          address
+          decimals
+          name
+          symbol
+        }
       }
     }
   }
+}
+
 `
 
 /**
@@ -44,6 +66,7 @@ export const VAULT_BY_ADDRESS_QUERY = `
   query GetVault($address: String!) {
     vault: vaultsByPk(address: $address) {
       address
+      creator
       name
       symbol
       assetAddress
@@ -63,6 +86,24 @@ export const VAULT_BY_ADDRESS_QUERY = `
         timestamp
         dexPool {
           name
+        }
+      }
+      vaultsPools {
+      dexPools {
+        address
+        name
+        tokenA {
+          address
+          decimals
+          name
+          symbol
+        }
+        tokenB {
+          address
+          decimals
+          name
+          symbol
+        }
         }
       }
     }

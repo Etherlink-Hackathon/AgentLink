@@ -108,6 +108,15 @@ export const sanity = {
   id: "agentlink-vaults",
 }
 
+export const verifiedMakers = {
+  testnet: [
+    "0x5edf9dec5b003af80b65e129ab17dbe64106a8e3",
+  ],
+  mainnet: [
+    "0x5edf9dec5b003af80b65e129ab17dbe64106a8e3",
+  ],
+}
+
 export const contracts = {
   mainnet: {
     vault: "0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d",

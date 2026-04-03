@@ -5,6 +5,7 @@ from arbitrage_vault.models import Token
 from arbitrage_vault.models import Vault
 from arbitrage_vault.models import VaultYield
 from arbitrage_vault.types.ArbitrageVault.evm_events.arbitrage_executed import ArbitrageExecutedPayload
+from arbitrage_vault.utils import ZERO_ADDRESS
 from dipdup.context import HandlerContext
 from dipdup.models.evm import EvmEvent
 
@@ -19,17 +20,24 @@ async def on_arbitrage_executed(
         defaults={
             'name': 'Etherlink Arbitrage Vault',
             'symbol': 'EAV',
-            'asset_address': '0x0000000000000000000000000000000000000000',
+            'asset_address': ZERO_ADDRESS,
+            'creator': event.payload.strategist,
+            'strategist': event.payload.strategist,
         },
     )
 
     # 2. Identify tokens (Generic placeholders)
-    asset_token, _ = await Token.get_or_create(
-        address=vault.asset_address, defaults={'name': 'Vault Asset', 'symbol': 'ASSET', 'decimals': 18}
-    )
-    trade_token, _ = await Token.get_or_create(
-        address=event.payload.tokenTrade, defaults={'name': 'Trade Token', 'symbol': 'TRADE', 'decimals': 18}
-    )
+    asset_token = None
+    if vault.asset_address != ZERO_ADDRESS:
+        asset_token, _ = await Token.get_or_create(
+            address=vault.asset_address, defaults={'name': 'Vault Asset', 'symbol': 'ASSET', 'decimals': 18}
+        )
+
+    trade_token = None
+    if event.payload.tokenTrade != ZERO_ADDRESS:
+        trade_token, _ = await Token.get_or_create(
+            address=event.payload.tokenTrade, defaults={'name': 'Trade Token', 'symbol': 'TRADE', 'decimals': 18}
+        )
 
     # 3. Identify DexPools
     dex_buy, _ = await DexPool.get_or_create(

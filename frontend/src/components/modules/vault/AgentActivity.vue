@@ -3,13 +3,15 @@ import { ref, computed } from "vue"
 import Pagination from "@ui/Pagination.vue"
 import { getCurrencyIcon, getDexIcon } from "@utils/misc"
 import { DateTime } from "luxon"
+import VaultActivePools from "./VaultActivePools.vue"
 
 const props = defineProps({
 	logs: Array,
 	transactions: Array,
+	pools: Array,
 })
 
-const activeTab = ref("logs") // logs | txs
+const activeTab = ref("logs") // logs | txs | pools
 
 const itemsPerPage = 5
 const currentPage = ref(1)
@@ -42,7 +44,7 @@ const paginatedHistory = computed(() => {
 			...tx,
 			time: formatTxTime(tx.timestamp),
 			pair: firstHop.token_in ? `${firstHop.token_in} / ${firstHop.token_out}` : "Multi-hop",
-			dex: firstHop.dex || "Oku Trade",
+			dex: firstHop.dex,
 			type: "Arbitrage",
 			direction: "Execution",
 			size: firstHop.amount_in ? `${parseFloat(firstHop.amount_in).toFixed(4)} ${firstHop.token_in}` : "—",
@@ -80,6 +82,12 @@ const getTokenPair = (pair) => {
 					>
 						Agent Transactions
 					</div>
+					<div 
+						@click="activeTab = 'pools'" 
+						:class="[$style.tab, activeTab === 'pools' && $style.active]"
+					>
+						Active DEX Pools
+					</div>
 				</Flex>
 			</Flex>
 		</div>
@@ -97,7 +105,7 @@ const getTokenPair = (pair) => {
 			</div>
 
 			<!-- Agent Transactions -->
-			<div v-else :class="$style.transactions">
+			<div v-else-if="activeTab === 'txs'" :class="$style.transactions">
 				<div :class="$style.table_container">
 					<table :class="$style.table">
 						<thead>
@@ -165,6 +173,11 @@ const getTokenPair = (pair) => {
 						:limit="itemsPerPage"
 					/>
 				</Flex>
+			</div>
+
+			<!-- Active Pools -->
+			<div v-else-if="activeTab === 'pools'" :class="$style.pools">
+				<VaultActivePools :pools="pools" :class="$style.pools_component" />
 			</div>
 		</div>
 	</div>
@@ -300,6 +313,16 @@ const getTokenPair = (pair) => {
 	margin-top: 16px;
 	padding-top: 16px;
 	border-top: 1px solid var(--border);
+}
+
+.pools {
+	min-height: 200px;
+}
+
+.pools_component {
+	border: none;
+	padding: 0;
+	background: transparent;
 }
 
 .pair_imgs {

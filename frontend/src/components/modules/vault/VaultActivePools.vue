@@ -9,7 +9,7 @@ import Pagination from "@ui/Pagination.vue"
 /**
  * Utils
  */
-import { getTokenLogo } from "@utils/misc"
+import { getTokenLogo, getDexIcon } from "@utils/misc"
 
 export default defineComponent({
 	name: "VaultActivePools",
@@ -31,17 +31,6 @@ export default defineComponent({
 			return props.pools.slice(start, end)
 		})
 
-		const getDexLogo = (dex) => {
-			const name = dex.toLowerCase().replace(/[\s-]/g, "")
-			if (name.includes("curve"))
-				return new URL("../../../assets/img/curve.png", import.meta.url)
-					.href
-			if (name.includes("oku"))
-				return new URL("../../../assets/img/oku.svg", import.meta.url)
-					.href
-			return null
-		}
-
 		const getPairTokens = (vault) => {
 			if (!vault) return []
 			return vault.split("/")
@@ -51,9 +40,9 @@ export default defineComponent({
 			currentPage,
 			itemsPerPage,
 			paginatedPools,
-			getDexLogo,
 			getPairTokens,
 			getTokenLogo,
+			getDexIcon,
 		}
 	},
 
@@ -61,18 +50,17 @@ export default defineComponent({
 		Pagination,
 	},
 })
+
 </script>
 
 <template>
 	<div :class="$style.wrapper">
-		<Text size="14" weight="600" color="primary" :class="$style.title">Active DEX Pools</Text>
-		
 		<div :class="$style.table_container">
 			<table :class="$style.table">
 				<thead>
 					<tr>
 						<th>DEX</th>
-						<th>VAULT</th>
+						<th>POOL</th>
 						<th>ALLOCATION</th>
 						<th :class="$style.align_right">LIQUIDITY</th>
 					</tr>
@@ -82,32 +70,36 @@ export default defineComponent({
 						<td>
 							<Flex align="center" gap="10">
 								<div :class="$style.pool_icon_wrapper">
-									<img v-if="getDexLogo(pool.dex)" :src="getDexLogo(pool.dex)" :class="$style.pool_icon_img" />
+									<img v-if="pool.dexPools" :src="getDexIcon(pool.dexPools.name)" :class="$style.pool_icon_img" />
 									<div v-else :class="$style.pool_icon_placeholder" />
 								</div>
-								<Text size="13" weight="600" color="secondary">{{ pool.dex }}</Text>
+								<Text size="13" weight="600" color="secondary">{{ pool.dexPools?.name || 'Unknown' }}</Text>
 							</Flex>
 						</td>
 						<td>
 							<Flex align="center" gap="8">
 								<div :class="$style.token_icons">
-									<template v-for="token in getPairTokens(pool.vault)" :key="token">
-										<img 
-											v-if="getTokenLogo(token)"
-											:src="getTokenLogo(token)"
-											:class="$style.token_icon"
-										/>
-										<div v-else :class="[$style.token_icon, $style.token_placeholder]" />
-									</template>
+									<img 
+										v-if="pool.dexPools?.tokenA?.symbol"
+										:src="getTokenLogo(pool.dexPools.tokenA.symbol)"
+										:class="$style.token_icon"
+									/>
+									<img 
+										v-if="pool.dexPools?.tokenB?.symbol"
+										:src="getTokenLogo(pool.dexPools.tokenB.symbol)"
+										:class="$style.token_icon"
+									/>
 								</div>
-								<Text size="13" weight="600" color="primary">{{ pool.vault }}</Text>
+								<Text size="13" weight="600" color="primary">
+									{{ pool.dexPools?.tokenA?.symbol || '?' }}/{{ pool.dexPools?.tokenB?.symbol || '?' }}
+								</Text>
 							</Flex>
 						</td>
 						<td>
-							<Text size="13" weight="600" color="green">{{ pool.allocation }}</Text>
+							<Text size="13" weight="600" color="green">{{ pool.allocation || '—' }}</Text>
 						</td>
-						<td :class="$style.align_right">
-							<Text size="13" weight="600" color="secondary">{{ pool.liquidity }}</Text>
+						<td>
+							<Text size="13" weight="600" color="secondary">{{ pool.liquidity || '—' }}</Text>
 						</td>
 					</tr>
 				</tbody>

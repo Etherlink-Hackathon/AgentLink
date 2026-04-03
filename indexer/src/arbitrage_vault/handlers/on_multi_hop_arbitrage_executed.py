@@ -7,6 +7,7 @@ from arbitrage_vault.models import VaultYield
 from arbitrage_vault.types.ArbitrageVault.evm_events.multi_hop_arbitrage_executed import (
     MultiHopArbitrageExecutedPayload,
 )
+from arbitrage_vault.utils import ZERO_ADDRESS
 from dipdup.context import HandlerContext
 from dipdup.models.evm import EvmEvent
 
@@ -22,7 +23,9 @@ async def on_multi_hop_arbitrage_executed(
         defaults={
             'name': 'Etherlink Arbitrage Vault',
             'symbol': 'EAV',
-            'asset_address': '0x0000000000000000000000000000000000000000',
+            'asset_address': ZERO_ADDRESS,
+            'creator': event.payload.strategist,
+            'strategist': event.payload.strategist,
         },
     )
 
@@ -48,20 +51,23 @@ async def on_multi_hop_arbitrage_executed(
 
     # Dynamic scaling based on vault asset decimals
     asset_addr = vault.asset_address.lower()
-    asset_tokens, _ = await Token.get_or_create(
-        address=asset_addr,
-        defaults={'name': 'Vault Asset', 'symbol': 'ASSET', 'decimals': 18},
-    )
-    # If it's a first see or placeholder name, enrich!
-    if _ or asset_tokens.name == 'Vault Asset':
-        meta = await fetch_token_metadata(asset_addr)
-        if meta and meta['decimals'] is not None:
-            asset_tokens.name = meta.get('name') or asset_tokens.name
-            asset_tokens.symbol = meta.get('symbol') or asset_tokens.symbol
-            asset_tokens.decimals = meta.get('decimals') or asset_tokens.decimals
-            await asset_tokens.save()
+    asset_tokens = None
+    if asset_addr != ZERO_ADDRESS:
+        asset_tokens, _ = await Token.get_or_create(
+            address=asset_addr,
+            defaults={'name': 'Vault Asset', 'symbol': 'ASSET', 'decimals': 18},
+        )
+        # If it's a first see or placeholder name, enrich!
+        if _ or asset_tokens.name == 'Vault Asset':
+            meta = await fetch_token_metadata(asset_addr)
+            if meta and meta['decimals'] is not None:
+                asset_tokens.name = meta.get('name') or asset_tokens.name
+                asset_tokens.symbol = meta.get('symbol') or asset_tokens.symbol
+                asset_tokens.decimals = meta.get('decimals') or asset_tokens.decimals
+                await asset_tokens.save()
 
-    profit = float(raw_profit) / (10**asset_tokens.decimals)
+    decimals = asset_tokens.decimals if asset_tokens else 18
+    profit = float(raw_profit) / (10**decimals)
 
     # 4. Resolve human-readable details and build a step-by-step route
     steps_metadata = []
@@ -80,46 +86,59 @@ async def on_multi_hop_arbitrage_executed(
             # Bridge Token A
             if meta['token0'] and not p.token_a:
                 t0_addr = meta['token0'].lower()
-                p.token_a, _ = await Token.get_or_create(
-                    address=t0_addr,
-                    defaults={'name': f'Token {t0_addr[:8]}', 'symbol': f'TKN_{t0_addr[:6]}', 'decimals': 18},
-                )
+                if t0_addr != ZERO_ADDRESS:
+                    p.token_a, _ = await Token.get_or_create(
+                        address=t0_addr,
+                        defaults={'name': f'Token {t0_addr[:8]}', 'symbol': f'TKN_{t0_addr[:6]}', 'decimals': 18},
+                    )
             # Bridge Token B
             if meta['token1'] and not p.token_b:
                 t1_addr = meta['token1'].lower()
-                p.token_b, _ = await Token.get_or_create(
-                    address=t1_addr,
-                    defaults={'name': f'Token {t1_addr[:8]}', 'symbol': f'TKN_{t1_addr[:6]}', 'decimals': 18},
-                )
+                if t1_addr != ZERO_ADDRESS:
+                    p.token_b, _ = await Token.get_or_create(
+                        address=t1_addr,
+                        defaults={'name': f'Token {t1_addr[:8]}', 'symbol': f'TKN_{t1_addr[:6]}', 'decimals': 18},
+                    )
             await p.save()
 
         # ── Token In ────────────────────────────────────────────────────────
         tin_addr = route[i].lower()
-        tin, tin_created = await Token.get_or_create(
-            address=tin_addr,
-            defaults={'name': f'Token {tin_addr[:8]}', 'symbol': f'TKN_{tin_addr[:6]}', 'decimals': 18},
-        )
-        if tin_created:
-            meta = await fetch_token_metadata(tin_addr)
-            tin.name = meta.get('name') or tin.name
-            tin.symbol = (meta.get('symbol') or tin.symbol)[:20]  # field max_length=20
-            tin.decimals = meta.get('decimals') or tin.decimals
-            await tin.save(update_fields=['name', 'symbol', 'decimals'])
+        tin = None
+        if tin_addr != ZERO_ADDRESS:
+            tin, tin_created = await Token.get_or_create(
+                address=tin_addr,
+                defaults={'name': f'Token {tin_addr[:8]}', 'symbol': f'TKN_{tin_addr[:6]}', 'decimals': 18},
+            )
+            if tin_created:
+                meta = await fetch_token_metadata(tin_addr)
+                tin.name = meta.get('name') or tin.name
+                tin.symbol = (meta.get('symbol') or tin.symbol)[:20]  # field max_length=20
+                tin.decimals = meta.get('decimals') or tin.decimals
+                await tin.save(update_fields=['name', 'symbol', 'decimals'])
 
         # ── Token Out ───────────────────────────────────────────────────────
         tout_addr = route[i + 1].lower()
-        tout, tout_created = await Token.get_or_create(
-            address=tout_addr,
-            defaults={'name': f'Token {tout_addr[:8]}', 'symbol': f'TKN_{tout_addr[:6]}', 'decimals': 18},
-        )
-        if tout_created:
-            meta = await fetch_token_metadata(tout_addr)
-            tout.name = meta.get('name') or tout.name
-            tout.symbol = (meta.get('symbol') or tout.symbol)[:20]
-            tout.decimals = meta.get('decimals') or tout.decimals
-            await tout.save(update_fields=['name', 'symbol', 'decimals'])
+        tout = None
+        if tout_addr != ZERO_ADDRESS:
+            tout, tout_created = await Token.get_or_create(
+                address=tout_addr,
+                defaults={'name': f'Token {tout_addr[:8]}', 'symbol': f'TKN_{tout_addr[:6]}', 'decimals': 18},
+            )
+            if tout_created:
+                meta = await fetch_token_metadata(tout_addr)
+                tout.name = meta.get('name') or tout.name
+                tout.symbol = (meta.get('symbol') or tout.symbol)[:20]
+                tout.decimals = meta.get('decimals') or tout.decimals
+                await tout.save(update_fields=['name', 'symbol', 'decimals'])
 
-        steps_metadata.append({'dex': p.name, 'token_in': tin.symbol, 'token_out': tout.symbol, 'pool_address': p_addr})
+        steps_metadata.append(
+            {
+                'dex': p.name,
+                'token_in': tin.symbol if tin else 'XTZ',
+                'token_out': tout.symbol if tout else 'XTZ',
+                'pool_address': p_addr,
+            }
+        )
 
     # 5. Create AgentExecution with a finalized 'steps' array for the UI
     execution = await AgentExecution.create(

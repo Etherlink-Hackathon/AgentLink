@@ -2,8 +2,10 @@
 import { computed } from "vue"
 import Badge from "@ui/Badge.vue"
 import Tooltip from "@ui/Tooltip.vue"
-import { getCurrencyIcon } from "@utils/misc"
+import { getCurrencyIcon, getDexIcon } from "@utils/misc"
 import { abbreviateNumber } from "@utils/amounts"
+import { verifiedMakers, NETWORK_TYPE } from "~/services/config"
+import Icon from "~/components/icons/Icon.vue"
 
 const props = defineProps({
 	vault: { type: Object, required: true },
@@ -19,18 +21,22 @@ const statusColor = computed(() => {
 	}
 })
 
-// Mock participants for visual parity with FlameWager
-const participants = [
-  "tz1...", "tz1...", "tz1..."
-]
 </script>
 
 <template>
 	<router-link :to="`/vaults/${vault.id}`" :class="$style.wrapper">
 		<div :class="$style.header">
 			<div :class="$style.symbol_imgs">
-				<img :src="getCurrencyIcon(vault.poolData?.token0?.symbol || 'ETH')" alt="symbol" />
-				<img :src="getCurrencyIcon(vault.poolData?.token1?.symbol || 'USDC')" alt="symbol" />
+				<Tooltip placement="bottom-end">
+					<Icon
+						v-if="verifiedMakers[NETWORK_TYPE].includes(vault.creator)"
+						name="logo_symbol"
+						viewBox="0 0 100 100"
+						alt="logo"
+						:class="$style.logo_symbol"
+					/>
+					<template #content>Creator: AgentLink</template>
+				</Tooltip>
 			</div>
 
 			<div :class="$style.users">
@@ -55,10 +61,31 @@ const participants = [
 		<div :class="$style.description">
 			<span>
 				<Icon name="price_event" size="12" :class="$style.strategy_icon" />
-				Arbitrage Strategy
+				{{ vault.strategyType }}
 			</span>
-			<div :class="$style.dot" />
-			<span>{{ vault.poolData?.dex || 'Etherlink' }}</span>
+		</div>
+
+		<div :class="$style.description">
+			<Icon name="coins" size="12" :class="$style.pool_icon" />
+			<Tooltip placement="top">
+				<div :class="$style.pool_icons">
+					<div
+						v-for="pool in vault.vaultsPools.slice(0, 4)"
+						:key="pool.dexPools.address"
+						:class="$style.pool_icon_item"
+					>
+						<img :src="getDexIcon(pool.dexPools.name)" :class="$style.dex_img" />
+					</div>
+
+					<div v-if="vault.vaultsPools.length > 4" :class="$style.more_indicator">...</div>
+				</div>
+
+				<template #content>
+					<div :class="$style.tooltip_content">
+						Number of arbitrage pools: {{ vault.vaultsPools.length }}
+					</div>
+				</template>
+			</Tooltip>
 		</div>
 
 		<div :class="$style.badges">
@@ -146,6 +173,13 @@ const participants = [
 	display: flex;
 }
 
+.logo_symbol {
+	width: 30px;
+	height: 30px;
+	background: var(--app-bg);
+	border-radius: 50%;
+	border: 3px solid var(--card-bg);
+}
 .user_avatar {
 	width: 30px;
 	height: 30px;
@@ -170,6 +204,50 @@ const participants = [
 	font-weight: 600;
 	color: var(--text-tertiary);
 	margin-bottom: 20px;
+}
+
+.pool_icons {
+	display: flex;
+	align-items: center;
+}
+
+.pool_icon_item {
+	display: flex;
+	align-items: center;
+	margin-right: -4px;
+}
+
+.dex_img {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--app-bg);
+	border: 2px solid var(--card-bg);
+	object-fit: contain;
+}
+
+.more_indicator {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--app-bg);
+	border: 2px solid var(--card-bg);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	font-weight: 800;
+	color: var(--text-tertiary);
+}
+
+.tooltip_content {
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--text-primary);
+}
+
+.pool_icon {
+	fill: var(--brand);
 }
 
 .strategy_icon {

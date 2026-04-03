@@ -37,6 +37,9 @@ export const getDexIcon = (name) => {
 	const s = name.toLowerCase()
 	if (s.includes("curve")) return new URL(`../../assets/img/curve.png`, import.meta.url).href
 	if (s.includes("oku")) return new URL(`../../assets/img/oku.png`, import.meta.url).href
+	if (s.includes("iguanadex")) return new URL(`../../assets/img/iguanadex.png`, import.meta.url).href
+	if (s.includes("iguanadex_v2")) return new URL(`../../assets/img/iguanadex.png`, import.meta.url).href
+	if (s.includes("tachyswap")) return new URL(`../../assets/img/tachyswap.png`, import.meta.url).href
 	return new URL(`../../assets/img/oku.png`, import.meta.url).href
 }
 

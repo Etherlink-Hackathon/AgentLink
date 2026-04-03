@@ -8,6 +8,9 @@ class Vault(Model):
     symbol = fields.CharField(max_length=20)
     asset_address = fields.CharField(max_length=42)
     created_at = fields.DatetimeField(auto_now_add=True)
+    creator = fields.CharField(max_length=42)
+    strategist = fields.CharField(max_length=42)
+    pools = fields.ManyToManyField('models.DexPool', related_name='vaults')
 
     class Meta:
         table = 'vaults'

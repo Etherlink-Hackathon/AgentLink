@@ -204,6 +204,7 @@ onUnmounted(() => {
 								<AgentActivity 
 									:logs="liveLogs" 
 									:transactions="agentTransactions"
+									:pools="vault.vaultsPools"
 								/>
 							</Flex>
 						</template>

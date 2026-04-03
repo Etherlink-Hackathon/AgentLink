@@ -5,7 +5,7 @@ from tortoise import fields
 class DexPool(Model):
     id = fields.IntField(pk=True)
     address = fields.CharField(max_length=42, unique=True, index=True)
-    name = fields.CharField(max_length=100)  # e.g. "oku-trade-etherlink"
+    name = fields.CharField(max_length=100)
     token_a = fields.ForeignKeyField('models.Token', related_name='dex_pools_a', null=True)
     token_b = fields.ForeignKeyField('models.Token', related_name='dex_pools_b', null=True)
     tvl_usd = fields.DecimalField(max_digits=36, decimal_places=2, default=0)

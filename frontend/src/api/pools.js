@@ -11,20 +11,19 @@ export const fetchPools = async () => {
         }
 
         const result = await flameWager.gql.query(DEX_POOLS_QUERY).toPromise()
-        
         if (result.error) {
             throw result.error
         }
 
-        return result.data.dex_pools.map(pool => ({
+        return result.data.dexPools.map(pool => ({
             id: pool.id,
             address: pool.address,
             name: pool.name,
-            tvl_usd: pool.tvl_usd,
-            tvl_xtz: pool.tvl_xtz,
-            last_updated: pool.last_updated,
-            token_a: pool.token_a,
-            token_b: pool.token_b
+            tvl_usd: pool.tvlUsd,
+            tvl_xtz: pool.tvlXtz,
+            last_updated: pool.lastUpdated,
+            token_a: pool.tokenA,
+            token_b: pool.tokenB
         }))
     } catch (error) {
         console.error("Failed to fetch DEX pools via GraphQL:", error)

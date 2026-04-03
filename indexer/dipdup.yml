@@ -61,6 +61,9 @@ indexes:
       - callback: on_withdraw
         contract: vault
         name: Withdraw
+      - callback: on_role_granted
+        contract: vault
+        name: RoleGranted
     first_level: 41517933
 
 hooks:
@@ -71,10 +74,10 @@ hooks:
       vault_address: str
       min_profit_usd: float
 
-jobs:
-  arbitrage_cycle:
-    hook: run_arbitrage
-    crontab: "* * * * *" # Every 3 minutes
-    args:
-      vault_address: "0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d"
-      min_profit_usd: 0
+# jobs:
+#   arbitrage_cycle:
+#     hook: run_arbitrage
+#     crontab: "*/5 * * * *" # Every 5 minutes
+#     args:
+#       vault_address: "0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d"
+#       min_profit_usd: 0

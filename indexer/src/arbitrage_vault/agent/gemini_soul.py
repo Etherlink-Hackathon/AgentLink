@@ -22,6 +22,7 @@ INVARIANTS:
 - DexType Mapping: UNISWAP_V2:0, UNISWAP_V3:1, CURVE:2, UNIVERSAL_ROUTER:3, CURVE_V2:4
 - Min Profit Floor: $0.10
 - Max Slippage: 0.5% (50 bps)
+- Interval: 5 minutes
 
 SECURITY:
 - You MUST define 'min_expected_profit_usd' to prevent sandwich attacks.
