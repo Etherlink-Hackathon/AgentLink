@@ -1,13 +1,21 @@
+from decimal import Decimal
+
+import eth_abi
 from arbitrage_vault.models import Agent
 from arbitrage_vault.models import AgentExecution
 from arbitrage_vault.models import DexPool
 from arbitrage_vault.models import Token
+from arbitrage_vault.models import User
+from arbitrage_vault.models import UserReward
 from arbitrage_vault.models import Vault
+from arbitrage_vault.models import VaultSnapshot
 from arbitrage_vault.models import VaultYield
 from arbitrage_vault.types.ArbitrageVault.evm_events.multi_hop_arbitrage_executed import (
     MultiHopArbitrageExecutedPayload,
 )
 from arbitrage_vault.utils import ZERO_ADDRESS
+from arbitrage_vault.utils import fetch_pool_metadata
+from arbitrage_vault.utils import fetch_token_metadata
 from dipdup.context import HandlerContext
 from dipdup.models.evm import EvmEvent
 
@@ -37,11 +45,7 @@ async def on_multi_hop_arbitrage_executed(
         defaults={'name': 'Etherlink Soul Agent', 'details': {'role': 'STRATEGIST'}},
     )
 
-    import eth_abi
-    from arbitrage_vault.utils import fetch_pool_metadata
-    from arbitrage_vault.utils import fetch_token_metadata
-
-    # 3. Decode the raw data (route, pools, hops, profit) from the log
+    # 3. Decode raw log data
     # MultiHopArbitrageExecuted(address indexed strategist, address[] route, address[] pools, uint256 hops, uint256 profit)
     decoded = eth_abi.decode(['address[]', 'address[]', 'uint256', 'uint256'], bytes.fromhex(event.data.data[2:]))
     route = list(decoded[0])
@@ -49,16 +53,15 @@ async def on_multi_hop_arbitrage_executed(
     hops = int(decoded[2])
     raw_profit = int(decoded[3])
 
-    # Dynamic scaling based on vault asset decimals
+    # 4. Dynamic scaling from vault asset decimals
     asset_addr = vault.asset_address.lower()
     asset_tokens = None
     if asset_addr != ZERO_ADDRESS:
-        asset_tokens, _ = await Token.get_or_create(
+        asset_tokens, created = await Token.get_or_create(
             address=asset_addr,
             defaults={'name': 'Vault Asset', 'symbol': 'ASSET', 'decimals': 18},
         )
-        # If it's a first see or placeholder name, enrich!
-        if _ or asset_tokens.name == 'Vault Asset':
+        if created or asset_tokens.name == 'Vault Asset':
             meta = await fetch_token_metadata(asset_addr)
             if meta and meta['decimals'] is not None:
                 asset_tokens.name = meta.get('name') or asset_tokens.name
@@ -67,12 +70,11 @@ async def on_multi_hop_arbitrage_executed(
                 await asset_tokens.save()
 
     decimals = asset_tokens.decimals if asset_tokens else 18
-    profit = float(raw_profit) / (10**decimals)
+    profit = Decimal(raw_profit) / Decimal(10**decimals)
 
-    # 4. Resolve human-readable details and build a step-by-step route
+    # 5. Resolve pool/token metadata and build step-by-step route for the UI
     steps_metadata = []
     for i in range(len(pools)):
-        # ── DEX Pool ────────────────────────────────────────────────────────
         p_addr = pools[i].lower()
         p, p_created = await DexPool.get_or_create(
             address=p_addr,
@@ -82,8 +84,6 @@ async def on_multi_hop_arbitrage_executed(
             meta = await fetch_pool_metadata(p_addr)
             if meta['name'] != p.name:
                 p.name = meta['name']
-
-            # Bridge Token A
             if meta['token0'] and not p.token_a:
                 t0_addr = meta['token0'].lower()
                 if t0_addr != ZERO_ADDRESS:
@@ -91,7 +91,6 @@ async def on_multi_hop_arbitrage_executed(
                         address=t0_addr,
                         defaults={'name': f'Token {t0_addr[:8]}', 'symbol': f'TKN_{t0_addr[:6]}', 'decimals': 18},
                     )
-            # Bridge Token B
             if meta['token1'] and not p.token_b:
                 t1_addr = meta['token1'].lower()
                 if t1_addr != ZERO_ADDRESS:
@@ -101,7 +100,6 @@ async def on_multi_hop_arbitrage_executed(
                     )
             await p.save()
 
-        # ── Token In ────────────────────────────────────────────────────────
         tin_addr = route[i].lower()
         tin = None
         if tin_addr != ZERO_ADDRESS:
@@ -112,11 +110,10 @@ async def on_multi_hop_arbitrage_executed(
             if tin_created:
                 meta = await fetch_token_metadata(tin_addr)
                 tin.name = meta.get('name') or tin.name
-                tin.symbol = (meta.get('symbol') or tin.symbol)[:20]  # field max_length=20
+                tin.symbol = (meta.get('symbol') or tin.symbol)[:20]
                 tin.decimals = meta.get('decimals') or tin.decimals
                 await tin.save(update_fields=['name', 'symbol', 'decimals'])
 
-        # ── Token Out ───────────────────────────────────────────────────────
         tout_addr = route[i + 1].lower()
         tout = None
         if tout_addr != ZERO_ADDRESS:
@@ -140,7 +137,7 @@ async def on_multi_hop_arbitrage_executed(
             }
         )
 
-    # 5. Create AgentExecution with a finalized 'steps' array for the UI
+    # 6. Create AgentExecution
     execution = await AgentExecution.create(
         agent=agent,
         vault=vault,
@@ -152,8 +149,7 @@ async def on_multi_hop_arbitrage_executed(
         transaction_hash=event.data.transaction_hash,
     )
 
-    # 6. Record yield for dashboard analytics
-    # Associate the yield with the first pool in the route for visibility
+    # 7. Record VaultYield — associates profit with the first pool for visibility
     first_pool_addr = pools[0].lower()
     first_pool = await DexPool.get(address=first_pool_addr)
     await VaultYield.create(
@@ -163,3 +159,37 @@ async def on_multi_hop_arbitrage_executed(
         execution=execution,
         dex_pool=first_pool,
     )
+
+    # 8. Auto-populate UserReward for all active depositors in this vault
+    # Use the most recent VaultSnapshot's total_supply as the denominator
+    latest_snapshot = await VaultSnapshot.filter(vault=vault).order_by('-timestamp').first()
+    total_supply = Decimal(latest_snapshot.total_supply) if latest_snapshot else None
+
+    if total_supply and total_supply > 0:
+        # Collect unique depositor addresses for this vault
+        depositor_addresses = (
+            await vault.actions.filter(action_type='DEPOSIT').values_list('user', flat=True).distinct()
+        )
+
+        user_rewards_to_create = []
+        for address in depositor_addresses:
+            user = await User.get_or_none(address=address.lower())
+            if not user or user.total_shares <= 0:
+                continue
+
+            share_ratio = user.total_shares / total_supply
+            reward_assets = profit * share_ratio
+
+            user_rewards_to_create.append(
+                UserReward(
+                    user=user,
+                    vault=vault,
+                    execution=execution,
+                    share_ratio=share_ratio,
+                    reward_assets=reward_assets,
+                    timestamp=event.data.timestamp,
+                )
+            )
+
+        if user_rewards_to_create:
+            await UserReward.bulk_create(user_rewards_to_create)

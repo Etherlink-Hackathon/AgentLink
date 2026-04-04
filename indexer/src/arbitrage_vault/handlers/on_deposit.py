@@ -1,4 +1,8 @@
+from decimal import Decimal
+
+from arbitrage_vault.models import User
 from arbitrage_vault.models import UserAction
+from arbitrage_vault.models import UserTVL
 from arbitrage_vault.models import Vault
 from arbitrage_vault.types.ArbitrageVault.evm_events.deposit import DepositPayload
 from arbitrage_vault.utils import DEFAULT_STRATEGIST
@@ -22,15 +26,48 @@ async def on_deposit(
         },
     )
 
-    assets = event.payload.assets / 10**18
-    shares = event.payload.shares / 10**18
+    assets = Decimal(event.payload.assets) / Decimal(10**18)
+    shares = Decimal(event.payload.shares) / Decimal(10**18)
+    owner = event.payload.owner.lower()
+    timestamp = event.data.timestamp
 
+    # 1. Get or create the User profile
+    user, created = await User.get_or_create(
+        address=owner,
+        defaults={
+            'total_deposited': assets,
+            'total_shares': shares,
+            'first_action_at': timestamp,
+            'last_action_at': timestamp,
+        },
+    )
+
+    if not created:
+        user.total_deposited += assets
+        user.total_shares += shares
+        user.last_action_at = timestamp
+        if user.first_action_at is None:
+            user.first_action_at = timestamp
+        await user.save(update_fields=['total_deposited', 'total_shares', 'last_action_at', 'first_action_at'])
+
+    # 2. Record the action
     await UserAction.create(
         vault=vault,
-        user=event.payload.owner,
+        user=owner,
+        user_profile=user,
         action_type='DEPOSIT',
         assets=assets,
         shares=shares,
-        timestamp=event.data.timestamp,
+        timestamp=timestamp,
         transaction_hash=event.data.transaction_hash,
+    )
+
+    # 3. Insert a UserTVL snapshot for charting
+    await UserTVL.create(
+        user=user,
+        vault=vault,
+        total_assets=user.total_deposited - user.total_withdrawn,
+        shares=user.total_shares,
+        action_type='DEPOSIT',
+        timestamp=timestamp,
     )

@@ -1,6 +1,5 @@
 import { flameWager } from "@/services/sdk"
 import { AGENT_DECISIONS_QUERY, AGENT_EXECUTIONS_QUERY, AGENT_BY_VAULT_QUERY } from "./graphql/queries"
-import { DateTime } from "luxon"
 
 /**
  * Fetch live logs from the agent (mapped from decisions)
@@ -21,12 +20,13 @@ export const fetchAgentLogs = async (limit = 20) => {
             status: log.status,
             heuristicsVerdict: log.heuristicsVerdict,
             geminiVerdict: log.geminiVerdict,
-            opportunityDetails: typeof log.opportunityDetails === 'string' 
-                ? JSON.parse(log.opportunityDetails) 
+            opportunityDetails: typeof log.opportunityDetails === 'string'
+                ? JSON.parse(log.opportunityDetails)
                 : log.opportunityDetails,
             txHash: log.txHash,
             error: log.error,
-            createdAt: log.createdAt
+            time: log.createdAt,
+            type: 'decision'
         }))
     } catch (error) {
         console.error("Failed to fetch agent logs via GraphQL:", error)
@@ -44,7 +44,7 @@ export const fetchAgentTransactions = async (limit = 20) => {
         }
 
         const result = await flameWager.gql.query(AGENT_EXECUTIONS_QUERY, { limit }).toPromise()
-        
+
         if (result.error) {
             throw result.error
         }
@@ -59,7 +59,8 @@ export const fetchAgentTransactions = async (limit = 20) => {
                 : tx.routeDetails,
             profit: tx.profit,
             timestamp: tx.timestamp,
-            hash: tx.transactionHash
+            hash: tx.transactionHash,
+            type: 'execution'
         }))
     } catch (error) {
         console.error("Failed to fetch agent transactions via GraphQL:", error)
@@ -74,7 +75,7 @@ export const fetchAgentStatus = async () => {
     try {
         const logs = await fetchAgentLogs()
         const txs = await fetchAgentTransactions()
-        
+
         const lastLog = logs[0]
         const totalProfit = txs.reduce((acc, tx) => acc + parseFloat(tx.profit || 0), 0)
 
@@ -102,7 +103,7 @@ export const fetchAgentByVault = async (vaultId) => {
         if (!flameWager.gql) return null
 
         const result = await flameWager.gql.query(AGENT_BY_VAULT_QUERY, { vaultId }).toPromise()
-        
+
         if (result.error) {
             throw result.error
         }
@@ -113,8 +114,8 @@ export const fetchAgentByVault = async (vaultId) => {
         return {
             ...agent,
             details: typeof agent.details === 'string' ? JSON.parse(agent.details) : agent.details,
-            strategyConfig: typeof agent.strategyConfig === 'string' 
-                ? JSON.parse(agent.strategyConfig) 
+            strategyConfig: typeof agent.strategyConfig === 'string'
+                ? JSON.parse(agent.strategyConfig)
                 : agent.strategyConfig
         }
     } catch (error) {

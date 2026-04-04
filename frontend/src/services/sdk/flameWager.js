@@ -40,7 +40,7 @@ const init = () => {
 
   // Only init contract if signer is available
   if (addresses.vault && flameWager.signer) {
-    flameWager.vaults[addresses.vault] = markRaw(new ethers.Contract(
+    flameWager.vaults[addresses.vault.toLowerCase()] = markRaw(new ethers.Contract(
       addresses.vault,
       vaultABI,
       flameWager.signer
@@ -76,7 +76,7 @@ const init = () => {
         fetchExchange,
       ],
       // Explicitly set preferGetMethod to false if it was accidentally enabled elsewhere
-      preferGetMethod: false, 
+      preferGetMethod: false,
       fetchOptions: {
         method: "POST",
         headers: {
@@ -104,7 +104,7 @@ const getERC20Contract = (address) => {
 
 const getAllowance = async (vaultAddress, ownerAddress) => {
   try {
-    const vault = flameWager.vaults[vaultAddress]
+    const vault = flameWager.vaults[vaultAddress.toLowerCase()]
     if (!vault) throw new Error("Vault contract not found for address: " + vaultAddress)
     const assetAddress = await vault.asset()
     const asset = getERC20Contract(assetAddress)
@@ -117,7 +117,7 @@ const getAllowance = async (vaultAddress, ownerAddress) => {
 
 const approve = async (vaultAddress, amount) => {
   try {
-    const vault = flameWager.vaults[vaultAddress]
+    const vault = flameWager.vaults[vaultAddress.toLowerCase()]
     if (!vault) throw new Error("Vault contract not found for address: " + vaultAddress)
     const assetAddress = await vault.asset()
     const asset = getERC20Contract(assetAddress)
@@ -175,7 +175,7 @@ const initWithSigner = async (signer, address) => {
     const addresses = getContractAddresses()
 
     if (addresses.vault) {
-      flameWager.vaults[addresses.vault] = markRaw(new ethers.Contract(
+      flameWager.vaults[addresses.vault.toLowerCase()] = markRaw(new ethers.Contract(
         addresses.vault,
         vaultABI,
         flameWager.signer

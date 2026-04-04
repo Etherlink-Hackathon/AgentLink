@@ -106,6 +106,16 @@ export const VAULT_BY_ADDRESS_QUERY = `
         }
         }
       }
+      executions {
+        agentId
+        decisionId
+        hops
+        profit
+        routeDetails
+        strategist
+        transactionHash
+        timestamp
+      }
     }
   }
 `

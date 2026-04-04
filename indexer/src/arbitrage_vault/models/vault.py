@@ -41,17 +41,3 @@ class VaultSnapshot(Model):
 
     class Meta:
         table = 'vault_snapshots'
-
-
-class UserAction(Model):
-    id = fields.IntField(pk=True)
-    vault = fields.ForeignKeyField('models.Vault', related_name='actions')
-    user = fields.CharField(max_length=42, index=True)
-    action_type = fields.CharField(max_length=10)  # DEPOSIT, WITHDRAW
-    assets = fields.DecimalField(max_digits=36, decimal_places=18)
-    shares = fields.DecimalField(max_digits=36, decimal_places=18)
-    timestamp = fields.DatetimeField()
-    transaction_hash = fields.CharField(max_length=66, index=True)
-
-    class Meta:
-        table = 'user_actions'

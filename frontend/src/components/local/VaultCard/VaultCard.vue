@@ -35,7 +35,7 @@ const statusColor = computed(() => {
 						alt="logo"
 						:class="$style.logo_symbol"
 					/>
-					<template #content>Creator: AgentLink</template>
+					<template #content>Created by AgentLink</template>
 				</Tooltip>
 			</div>
 

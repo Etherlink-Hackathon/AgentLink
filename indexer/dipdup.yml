@@ -73,11 +73,17 @@ hooks:
     args:
       vault_address: str
       min_profit_usd: float
+  refresh_views:
+    callback: refresh_views
+    atomic: false
 
-# jobs:
-#   arbitrage_cycle:
-#     hook: run_arbitrage
-#     crontab: "*/5 * * * *" # Every 5 minutes
-#     args:
-#       vault_address: "0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d"
-#       min_profit_usd: 0
+jobs:
+  arbitrage_cycle:
+    hook: run_arbitrage
+    crontab: "*/5 * * * *" # Every 5 minutes
+    args:
+      vault_address: "0x895ea1c1a1ef1ecef0fb822e33be0bb9d493559d"
+      min_profit_usd: 0
+  refresh_views_scheduler:
+    hook: refresh_views
+    crontab: "*/5 * * * *" # Every 5 minutes

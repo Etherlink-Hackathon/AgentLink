@@ -1,8 +1,12 @@
 <script setup>
-import { ref } from "vue"
+import { ref, computed } from "vue"
 import Button from "@ui/Button.vue"
 import Input from "@ui/Input.vue"
+import { useAccountStore } from "@store/account"
+import { currentNetwork } from "@sdk"
+import { chainConfig } from "@config"
 
+const accountStore = useAccountStore()
 const emit = defineEmits(["onDeposit", "onWithdraw"])
 
 const props = defineProps({
@@ -12,12 +16,19 @@ const props = defineProps({
 const activeTab = ref("deposit")
 const amount = ref("")
 
+const balance = computed(() => accountStore.balance || "0")
+
+const nativeSymbol = computed(() => {
+	const net = currentNetwork.value || 'mainnet'
+	return chainConfig[net]?.nativeCurrency?.symbol || 'XTZ'
+})
+
 const handlePreset = (preset) => {
-	const balance = 14.50 // Mock balance
+	const currentBalance = parseFloat(balance.value)
 	if (preset === 'MAX') {
-		amount.value = balance.toString()
+		amount.value = currentBalance.toString()
 	} else {
-		amount.value = (balance * (preset / 100)).toFixed(2)
+		amount.value = (currentBalance * (preset / 100)).toFixed(4)
 	}
 }
 
@@ -54,7 +65,9 @@ const handleConfirm = () => {
 			<Flex direction="column" gap="12">
 				<Flex justify="between" align="center">
 					<Text size="12" weight="700" color="tertiary" :class="$style.label">AMOUNT</Text>
-					<Text size="12" weight="700" color="tertiary" :class="$style.balance">Balance: 14.50 {{ vault?.token1?.symbol || 'XTZ' }}</Text>
+					<Text size="12" weight="700" color="tertiary" :class="$style.balance">
+						Balance: {{ parseFloat(balance).toFixed(4) }} {{ nativeSymbol }}
+					</Text>
 				</Flex>
 				<Input
 					v-model="amount"
@@ -63,7 +76,7 @@ const handleConfirm = () => {
 					:class="$style.input_field"
 				>
 					<template #right>
-						<Text size="14" weight="700" color="secondary">{{ vault?.token1?.symbol || 'WETH' }}</Text>
+						<Text size="14" weight="700" color="secondary">{{ nativeSymbol }}</Text>
 					</template>
 				</Input>
 
@@ -159,9 +172,6 @@ const handleConfirm = () => {
   transition: border-color 0.2s;
 }
 
-.input_field:focus-within {
-  border-color: var(--brand);
-}
 
 .info {
 	padding: 16px;

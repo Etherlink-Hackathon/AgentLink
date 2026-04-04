@@ -43,6 +43,7 @@ const showDepositModal = ref(false)
 const showWithdrawModal = ref(false)
 const showConfigModal = ref(false)
 const agentConfig = ref(null)
+const selectedAmount = ref(0)
 
 const breadcrumbs = computed(() => [
 	{ name: "Explore", path: "/explore" },
@@ -226,7 +227,7 @@ onUnmounted(() => {
 					<div :class="$style.right">
 						<VaultDeposit 
 							:vault="vault" 
-							@onDeposit="() => { showDepositModal = true }"
+							@onDeposit="(val) => { selectedAmount = val; showDepositModal = true }"
 							@onWithdraw="() => { showWithdrawModal = true }"
 						/>
 					</div>
@@ -238,6 +239,7 @@ onUnmounted(() => {
 		<DepositModal 
 			v-if="vault"
 			:show="showDepositModal" 
+			:initialAmount="selectedAmount"
 			:selectedPool="{ address: vault.address, name: vault.name, entryLockPeriod: 3600 }"
 			:state="{ totalLiquidity: 100, sharePrice: 1.05 }"
 			:apy="8.5"

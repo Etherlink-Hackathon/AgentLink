@@ -3,7 +3,10 @@ from .agent import AgentDecision
 from .agent import AgentExecution
 from .pool import DexPool
 from .token import Token
-from .vault import UserAction
+from .user import User
+from .user import UserAction
+from .user import UserReward
+from .user import UserTVL
 from .vault import Vault
 from .vault import VaultSnapshot
 from .vault import VaultYield
@@ -14,7 +17,10 @@ __all__ = [
     'AgentExecution',
     'DexPool',
     'Token',
+    'User',
     'UserAction',
+    'UserReward',
+    'UserTVL',
     'Vault',
     'VaultSnapshot',
     'VaultYield',

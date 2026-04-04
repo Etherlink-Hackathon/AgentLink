@@ -49,6 +49,7 @@ const props = defineProps({
 	selectedPool: Object,
 	state: Object,
 	apy: Number,
+	initialAmount: [Number, String],
 })
 
 const emit = defineEmits(["onClose", "onBack"])
@@ -138,7 +139,7 @@ const handleDeposit = async () => {
 		depositTxHash.value = op.hash
 
 		accountStore.pendingTransaction.awaiting = true
-		op.confirmation()
+		op.wait()
 			.then(() => {
 				accountStore.pendingTransaction.awaiting = false
 			})
@@ -275,6 +276,7 @@ watch(
 				fetchAllowance()
 			}
 
+			amount.value = props.initialAmount || 0
 			initTiming()
 			timingInterval = setInterval(() => {
 				initTiming()
