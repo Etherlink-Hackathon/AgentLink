@@ -6,27 +6,45 @@
 DROP MATERIALIZED VIEW IF EXISTS user_statistics;
 
 CREATE MATERIALIZED VIEW user_statistics AS
+WITH actions_agg AS (
+    SELECT
+        "user" AS address,
+        vault_id AS vault_address,
+        COALESCE(SUM(assets) FILTER (WHERE action_type = 'DEPOSIT'), 0) AS total_deposited,
+        COALESCE(SUM(assets) FILTER (WHERE action_type = 'WITHDRAW'), 0) AS total_withdrawn,
+        -- Net shares currently held in this specific vault
+        COALESCE(SUM(shares) FILTER (WHERE action_type = 'DEPOSIT'), 0) - 
+        COALESCE(SUM(shares) FILTER (WHERE action_type = 'WITHDRAW'), 0) AS net_shares,
+        MIN(timestamp) AS first_action_at,
+        MAX(timestamp) AS last_action_at,
+        COUNT(*) AS total_actions,
+        COUNT(*) FILTER (WHERE action_type = 'DEPOSIT') AS deposit_count,
+        COUNT(*) FILTER (WHERE action_type = 'WITHDRAW') AS withdrawal_count
+    FROM user_actions
+    GROUP BY "user", vault_id
+),
+rewards_agg AS (
+    SELECT
+        user_id AS address,
+        vault_id AS vault_address,
+        COALESCE(SUM(reward_assets), 0) AS total_rewards_earned
+    FROM user_rewards
+    GROUP BY user_id, vault_id
+)
 SELECT
-    u.address,
-    u.total_deposited,
-    u.total_withdrawn,
-    -- Net current position (assets still in vaults)
-    GREATEST(u.total_deposited - u.total_withdrawn, 0) AS net_position,
-    u.total_shares,
-    u.first_action_at,
-    u.last_action_at,
-    -- Total lifetime rewards earned across all vaults
-    COALESCE(SUM(r.reward_assets), 0) AS total_rewards_earned,
-    -- Number of distinct vaults the user has interacted with
-    COUNT(DISTINCT ua.vault_id) AS vaults_participated,
-    -- Total number of deposit/withdraw events
-    COUNT(ua.id) AS total_actions,
-    COUNT(ua.id) FILTER (WHERE ua.action_type = 'DEPOSIT') AS deposit_count,
-    COUNT(ua.id) FILTER (WHERE ua.action_type = 'WITHDRAW') AS withdrawal_count
-FROM users u
-LEFT JOIN user_actions ua ON u.address = ua.user
-LEFT JOIN user_rewards r ON u.address = r.user_id
-GROUP BY u.address, u.total_deposited, u.total_withdrawn, u.total_shares,
-         u.first_action_at, u.last_action_at;
+    a.address,
+    a.vault_address,
+    a.total_deposited,
+    a.total_withdrawn,
+    GREATEST(a.total_deposited - a.total_withdrawn, 0) AS net_position,
+    a.net_shares AS total_shares,
+    a.first_action_at,
+    a.last_action_at,
+    COALESCE(r.total_rewards_earned, 0) AS total_rewards_earned,
+    a.total_actions,
+    a.deposit_count,
+    a.withdrawal_count
+FROM actions_agg a
+LEFT JOIN rewards_agg r ON a.address = r.address AND a.vault_address = r.vault_address;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_user_statistics_address ON user_statistics (address);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_statistics_address_vault ON user_statistics (address, vault_address);

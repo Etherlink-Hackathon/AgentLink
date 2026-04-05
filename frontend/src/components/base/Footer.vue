@@ -33,15 +33,35 @@ const STATUSES = {
 
 const status = reactive({
 	network: STATUSES.LOADING,
+	dipdup: STATUSES.LOADING,
 })
 
 const statusBlock = computed(() => {
-	if (status.network === STATUSES.GOOD) {
+	if (status.dipdup === STATUSES.GOOD && status.network === STATUSES.GOOD) {
 		return { text: "Stable", color: "green" }
+	} else if (status.dipdup === STATUSES.DELAYED && status.network === STATUSES.DELAYED) {
+		return { text: "Everything delayed", color: "red" }
 	} else {
-		return { text: "Network delayed", color: "yellow" }
+		return { text: "Systems delayed", color: "yellow" }
 	}
 })
+
+const checkDipdup = async () => {
+	const graphqlUrl = import.meta.env.VITE_GRAPHQL_URL || "http://localhost:8181/v1/graphql"
+	const url = graphqlUrl.replace("/v1/graphql", "")
+
+	if (!url) {
+		status.dipdup = STATUSES.GOOD
+		return
+	}
+
+	try {
+		await axios.get(url)
+		status.dipdup = STATUSES.GOOD
+	} catch (e) {
+		status.dipdup = STATUSES.DELAYED
+	}
+}
 
 const checkNetwork = async () => {
 	const rpcUrl =
@@ -75,9 +95,11 @@ const handleSwitch = (network) => {
 }
 
 onMounted(async () => {
+	checkDipdup()
 	checkNetwork()
 
 	checkInterval = setInterval(async () => {
+		checkDipdup()
 		checkNetwork()
 	}, 30000)
 })
@@ -125,14 +147,15 @@ onBeforeUnmount(() => {
 							<Button
 								type="secondary"
 								size="small"
+								link="https://status.wager.com"
 								:class="[$style.footer_btn, $style[statusBlock.color]]"
 							>
-								<Icon :name="(statusBlock.color === 'green' && 'checkcircle') || 'warning'" size="14" />
+								<Icon :name="(statusBlock.color === 'green' && 'checkcircle') || 'warning'" size="14" :class="$style" />
 								{{ statusBlock.text }}
 							</Button>
 
 							<template #content>
-								<span>Network:</span> {{ status.network }}
+								<span>DipDup:</span> {{ status.dipdup }}<br /><span>Network:</span> {{ status.network }}<br />
 							</template>
 						</Tooltip>
 

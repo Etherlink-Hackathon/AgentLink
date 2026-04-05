@@ -61,7 +61,7 @@ export default defineComponent({
 					<tr>
 						<th>DEX</th>
 						<th>POOL</th>
-						<th>ALLOCATION</th>
+						<th>PRICE</th>
 						<th :class="$style.align_right">LIQUIDITY</th>
 					</tr>
 				</thead>

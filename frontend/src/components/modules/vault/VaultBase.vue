@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, onMounted, watch, onUnmounted } from "vue"
 import VaultStats from "./VaultStats.vue"
 import VaultChart from "./VaultChart.vue"
 import VaultDeposit from "./VaultDeposit.vue"
@@ -13,20 +13,22 @@ import Badge from "@ui/Badge.vue"
 import Button from "@ui/Button.vue"
 import DepositModal from "../../local/modals/pools/DepositModal.vue"
 import WithdrawClaimsModal from "../../local/modals/pools/WithdrawClaimsModal.vue"
-import { analytics } from "@sdk"
+import { analytics, flameWager, initVaults } from "@sdk"
 import { activeChainConfig } from "@config"
 import { fetchVaultById } from "@/api/vaults"
 import { fetchAgentLogs, fetchAgentTransactions, fetchAgentByVault } from "@/api/agent"
+import { fetchUserStatistics } from "@/api/user"
 import { useNotificationsStore } from "@store/notifications"
+import { useAccountStore } from "@store/account"
 import ConfigModal from "../../local/modals/shared/ConfigModal.vue"
 import { 
   subscribeToAgentDecisions, 
   subscribeToAgentExecutions,
   subscribeToVault
 } from "@/api/graphql/subscriptions"
-import { onUnmounted } from "vue"
 
 const notificationsStore = useNotificationsStore()
+const accountStore = useAccountStore()
 const liveLogs = ref([])
 const agentTransactions = ref([])
 const subscriptions = []
@@ -44,6 +46,8 @@ const showWithdrawModal = ref(false)
 const showConfigModal = ref(false)
 const agentConfig = ref(null)
 const selectedAmount = ref(0)
+const isWithdrawing = ref(false)
+const userPosition = ref(null)
 
 const breadcrumbs = computed(() => [
 	{ name: "Explore", path: "/explore" },
@@ -70,6 +74,29 @@ const fetchBackendData = async () => {
 		console.error("Failed to fetch backend data:", error)
 	}
 }
+
+/**
+ * Fetch real user statistics (indexed + on-chain)
+ */
+const fetchPositionData = async () => {
+    const address = flameWager.address || accountStore.pkh
+    if (!address || !vault.value) return
+    
+    try {
+        initVaults([vault.value])
+        
+        const stats = await fetchUserStatistics(address, vault.value.address)
+        userPosition.value = stats
+    } catch (err) {
+        console.error("[VaultBase] Failed to fetch user position:", err)
+    }
+}
+
+watch(() => [flameWager.signer, vault.value?.address], async ([signer, newVaultAddr]) => {
+	if (signer && newVaultAddr) {
+		await fetchPositionData()
+	}
+}, { immediate: true })
 
 const handleShowConfig = async () => {
     try {
@@ -111,10 +138,10 @@ onMounted(async () => {
 		const data = await fetchVaultById(props.id)
 		vault.value = data
 		await fetchBackendData()
+		await fetchPositionData()
 
     // Subscriptions
     subscriptions.push(subscribeToAgentDecisions((newLogs) => {
-      // Append or replace? Let's refresh all for simplicity since it's limited to 20
       fetchAgentLogs().then(logs => liveLogs.value = logs)
     }))
 
@@ -124,7 +151,6 @@ onMounted(async () => {
 
     subscriptions.push(subscribeToVault(props.id, (updatedVault) => {
       if (updatedVault) {
-        // Update TVL/APY in real-time
         const latestSnapshot = updatedVault.snapshots[0] || {}
         vault.value = {
           ...vault.value,
@@ -213,7 +239,7 @@ onUnmounted(() => {
 						<template v-else>
 							<Flex direction="column" gap="24">
 								<!-- Your Position Stats -->
-								<VaultPersonalStats :vault="vault" :position="mockPosition" />
+								<VaultPersonalStats :vault="vault" :position="userPosition" />
 
 								<!-- Your Earnings Chart -->
 								<VaultEarnings :vault="vault" />
@@ -226,9 +252,11 @@ onUnmounted(() => {
 
 					<div :class="$style.right">
 						<VaultDeposit 
-							:vault="vault" 
+							:vault="vault"
+							:userPosition="userPosition"
 							@onDeposit="(val) => { selectedAmount = val; showDepositModal = true }"
-							@onWithdraw="() => { showWithdrawModal = true }"
+							
+							@onWithdraw="showWithdrawModal = true"
 						/>
 					</div>
 				</div>
@@ -249,8 +277,8 @@ onUnmounted(() => {
 		<WithdrawClaimsModal 
 			v-if="vault"
 			:show="showWithdrawModal" 
-			:pool="{ address: vault.address, name: vault.name }"
-			:positions="[]"
+			:vault="vault"
+			:position="userPosition"
 			@onClose="showWithdrawModal = false"
 		/>
 

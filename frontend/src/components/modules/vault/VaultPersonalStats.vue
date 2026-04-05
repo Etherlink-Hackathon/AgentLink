@@ -32,10 +32,29 @@ const props = defineProps({
 
 const accountStore = useAccountStore()
 
-const tvl = computed(() => props.position?.tvl || 0)
-const returning = computed(() => props.position?.returning || 0)
-const potential = computed(() => props.position?.potential || 0)
-const symbol = computed(() => props.position?.symbol || props.vault?.token1?.symbol || "ETH")
+// Net deposited position from indexer (historical)
+const tvl = computed(() => {
+	const raw = props.position?.netPosition || "0"
+	return parseFloat(raw)
+})
+
+// Live on-chain redeemable amount (what user actually gets back now)
+const returning = computed(() => {
+	const raw = props.position?.redeemableAssets || "0"
+	try {
+		return parseFloat(raw) / 10 ** 18
+	} catch {
+		return 0
+	}
+})
+
+// Lifetime rewards credited from arbitrage executions
+const potential = computed(() => {
+	const raw = props.position?.totalRewardsEarned || "0"
+	return parseFloat(raw)
+})
+
+const symbol = computed(() => props.vault?.assetSymbol || props.vault?.token1?.symbol || "XTZ")
 
 </script>
 

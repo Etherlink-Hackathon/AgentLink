@@ -17,7 +17,7 @@ import Pagination from "@ui/Pagination.vue"
 /**
  * Services
  */
-import { flameWager as juster } from "@sdk"
+import { redeem, flameWager } from "@sdk"
 import { shorten } from "@utils/misc"
 import { numberWithSymbol } from "@utils/amounts"
 
@@ -32,200 +32,73 @@ const notificationsStore = useNotificationsStore()
 
 const props = defineProps({
 	show: Boolean,
-	positions: Object,
-	pool: Object,
+	vault: Object,
+	position: Object, // { netPosition, redeemableAssets, onChainShares, totalRewardsEarned }
 })
 
 const emit = defineEmits(["onClose"])
 
-const pendingClaims = computed(() => {
-	let claims = []
-	props.positions.forEach((position) => {
-		claims = [...claims, ...position.claims.filter((claim) => !claim.event.result)]
-	})
-	return claims
-})
+/** Simulating legacy "Claims" structure for UI consistency */
+const pendingClaims = ref([]) // Etherlink vaults have instant claims usually
 const availableClaims = computed(() => {
-	let claims = []
-	props.positions.forEach((position) => {
-		claims = [...claims, ...position.claims.filter((claim) => claim.event.result && !claim.withdrawn)]
-	})
-	return claims
-})
-const affectedPools = computed(() => [...new Set(availableClaims.value.map((claim) => claim.poolId))])
-
-const paginationPage = ref(1)
-const paginatedClaims = computed(() => cloneDeep(availableClaims.value).slice((paginationPage.value - 1) * 5, paginationPage.value * 5))
-
-const nextClaim = computed(() => {
-	let closest
-
-	pendingClaims.value.forEach((claim) => {
-		const diff = DateTime.fromISO(claim.event.event.betsCloseTime)
-			.plus(claim.event.event.measurePeriod * 1000)
-			.diff(DateTime.now(), ["minutes"])
-			.toObject()
-
-		if (!closest) {
-			closest = {
-				claim,
-				diff,
-			}
-			return
-		}
-
-		const closestDiff = DateTime.fromISO(closest.claim.event.event.betsCloseTime)
-			.plus(closest.claim.event.event.measurePeriod * 1000)
-			.diff(DateTime.now(), ["minutes"])
-			.toObject()
-
-		if (diff.minutes < closestDiff.minutes) {
-			closest.claim = claim
-			closest.diff = diff
-		}
-	})
-
-	return closest
-})
-
-const handleWithdrawClaims = async ({ eventIds, address }) => {
-	try {
-		const contract = await juster.sdk._tezos.contract.at(contracts[juster.sdk._network === "mainnet" ? "mainnet" : "testnet"])
-
-		if (!eventIds.length || !address) return
-
-		const transactions = []
-		eventIds.forEach((id) => {
-			transactions.push({
-				kind: "transaction",
-				...contract.methods.withdraw(id, address).toTransferParams(),
-			})
-		})
-
-		const batch = await juster.sdk._tezos.wallet.batch(transactions)
-
-		const batchOp = await batch.send()
-
-		return { success: true, hash: batchOp.hash }
-	} catch (error) {
-		return { success: false, title: error.title, message: error.message }
+	if (!props.position || !props.position.redeemableAssets || props.position.redeemableAssets === "0") return []
+	console.log(props.position)
+	// Map vault position to a single claim structure that the UI expects
+	return {
+		id: props.vault?.address?.slice(-4) || 'Vault',
+		amount: parseFloat(props.position.redeemableAssets) / 10**18,
+		poolId: props.vault?.address || '0x0',
+		eventId: '0',
+		withdrawn: false
 	}
-}
+})
+
+const nextClaim = computed(() => null)
+
 const opConfirmationInProgress = ref(false)
+
 const handleWithdraw = async () => {
-	if (buttonState.disabled) return
+	if (buttonState.disabled || !props.vault || !props.position) return
 
-	opConfirmationInProgress.value = true
+	const address = accountStore.pkh || flameWager.address
+	if (!address) return
 
-	if (!props.pool) {
-		const transactions = []
-		for (const pos of props.positions.filter((p) => p.claims.length)) {
-			const contract = await juster.sdk._tezos.contract.at(pos.poolId)
-			const claims = pos.claims.filter((c) => c.event.result && !c.withdrawn)
+	const shares = props.position.onChainShares
+	if (!shares || shares === "0") return
 
-			transactions.push({
-				kind: "transaction",
-				...contract.methods
-					.withdrawClaims(
-						claims.map((c) => {
-							return {
-								eventId: c.eventId,
-								provider: accountStore.pkh,
-							}
-						}),
-					)
-					.toTransferParams(),
-			})
-		}
-
-		const batch = await juster.sdk._tezos.wallet.batch(transactions)
-		const batchOp = await batch.send()
-
-		accountStore.pendingTransaction.awaiting = true
-		batchOp
-			.confirmation()
-			.then(() => {
-				accountStore.pendingTransaction.awaiting = false
-			})
-			.catch(() => {
-				accountStore.pendingTransaction.awaiting = false
-			})
-
+	try {
+		opConfirmationInProgress.value = true
+		
+		const tx = await redeem(props.vault.address, BigInt(shares), address)
+		
 		notificationsStore.create({
 			notification: {
 				type: "success",
-				title: "Your withdraw has been accepted",
-				description: "We need to process your request, it will take ~30 seconds",
+				title: "Withdrawal accepted",
+				description: `Transaction ${tx.hash.slice(0, 10)}... has been submitted.`,
 				autoDestroy: true,
 			},
 		})
 
+		await tx.wait(1)
+		
 		opConfirmationInProgress.value = false
 		emit("onClose")
-	} else {
-		try {
-			const op = await juster.pools[props.pool.address].withdrawClaims(
-				availableClaims.value.map((claim) => {
-					return {
-						eventId: claim.eventId,
-						provider: accountStore.pkh,
-					}
-				}),
-			)
-
-			accountStore.pendingTransaction.awaiting = true
-			op.confirmation()
-				.then(() => {
-					accountStore.pendingTransaction.awaiting = false
-				})
-				.catch(() => {
-					accountStore.pendingTransaction.awaiting = false
-				})
-
-			notificationsStore.create({
-				notification: {
-					type: "success",
-					title: "Your withdraw has been accepted",
-					description: "We need to process your request, it will take ~30 seconds",
-					autoDestroy: true,
-				},
-			})
-
-			opConfirmationInProgress.value = false
-			emit("onClose")
-		} catch (error) {
-			if (error.title == "Aborted") {
-				notificationsStore.create({
-					notification: {
-						icon: "warning",
-						title: "The operation was rejected",
-						description: `The withdrawal request was not accepted`,
-						autoDestroy: true,
-					},
-				})
-			} else {
-				notificationsStore.create({
-					notification: {
-						icon: "warning",
-						title: "Something went wrong",
-						description: "Repeat the operation or wait for a while",
-						autoDestroy: true,
-					},
-				})
-			}
-
-			opConfirmationInProgress.value = false
-		}
+	} catch (error) {
+		console.error("Withdrawal error:", error)
+		notificationsStore.create({
+			notification: {
+				type: "error",
+				title: "Something went wrong",
+				description: error.message || "Please check your wallet and try again.",
+				autoDestroy: true,
+			},
+		})
+		opConfirmationInProgress.value = false
 	}
 }
 
 const buttonState = computed(() => {
-	if (accountStore.pendingTransaction.awaiting)
-		return {
-			text: "Previous transaction in process",
-			disabled: true,
-			type: "secondary",
-		}
 	if (opConfirmationInProgress.value)
 		return {
 			text: "Awaiting confirmation..",
@@ -233,8 +106,15 @@ const buttonState = computed(() => {
 			type: "secondary",
 		}
 
+	if (!availableClaims.value || !availableClaims.value.amount)
+		return {
+			text: "No balance to withdraw",
+			disabled: true,
+			type: "secondary",
+		}
+
 	return {
-		text: `Continue to confirmation`,
+		text: `Confirm Withdrawal`,
 		disabled: false,
 		type: "primary",
 	}
@@ -254,7 +134,7 @@ const buttonState = computed(() => {
 		</Flex>
 
 		<Flex direction="column" gap="32" :class="$style.base">
-			<Flex direction="column" gap="8">
+			<!-- <Flex direction="column" gap="8">
 				<Flex>
 					<Text size="13" weight="500" color="tertiary" height="16">
 						Your withdrawal request contains
@@ -262,16 +142,16 @@ const buttonState = computed(() => {
 						are accepted.
 					</Text>
 				</Flex>
-			</Flex>
+			</Flex> -->
 
 			<Flex direction="column" gap="8">
 				<Flex align="center" justify="between">
 					<Text size="12" weight="600" color="secondary"> Withdrawal </Text>
-					<Text size="12" weight="600" color="tertiary">
+					<!-- <Text size="12" weight="600" color="tertiary">
 						{{ affectedPools.length }}
 						affected
 						{{ affectedPools.length > 1 ? "pools" : "pool" }}
-					</Text>
+					</Text> -->
 				</Flex>
 
 				<Flex align="center" justify="between" :class="$style.badge">
@@ -280,7 +160,7 @@ const buttonState = computed(() => {
 
 						<Flex>
 							<Text size="14" weight="600" color="primary">
-								{{ numberWithSymbol(availableClaims.reduce((acc, { amount }) => (acc += amount), 0).toFixed(2), ",") }}
+								{{ numberWithSymbol(availableClaims.amount, ",") }}
 							</Text>
 							<Text size="14" weight="600" color="tertiary"> &nbsp;ꜩ </Text>
 						</Flex>
@@ -289,7 +169,9 @@ const buttonState = computed(() => {
 					<Text size="14" weight="600" color="tertiary">-></Text>
 
 					<Flex align="center" gap="6">
-						<img :src="`https://services.tzkt.io/v1/avatars/${accountStore.pkh}`" alt="avatar" :class="$style.avatar" />
+						<div :class="$style.avatar_placeholder">
+							<img :src="`https://services.tzkt.io/v1/avatars/${accountStore.pkh}`" alt="avatar" :class="$style.avatar" />
+						</div>
 
 						<Flex align="center">
 							<Text size="14" weight="600" color="secondary">
@@ -300,23 +182,15 @@ const buttonState = computed(() => {
 				</Flex>
 			</Flex>
 
-			<Flex direction="column" gap="16">
+			<Flex v-show="availableClaims && availableClaims.amount" direction="column" gap="16">
 				<Flex direction="column" gap="8">
-					<Flex align="center" justify="between">
-						<Text size="12" weight="600" color="tertiary"> Claims to withdraw </Text>
-						<Text v-if="pendingClaims.length" size="12" weight="600" color="support">
-							Next available claim in
-							{{ nextClaim.diff.minutes.toFixed(0) }} min
-						</Text>
-					</Flex>
-
-					<Flex v-for="claim in paginatedClaims" align="center" justify="between" :class="$style.badge">
+					<Flex align="center" justify="between" :class="$style.badge">
 						<Flex align="center" gap="8">
 							<Icon name="checkcircle" size="14" color="tertiary" />
 
 							<Flex>
-								<Text size="14" weight="600" color="primary"> Claim </Text>
-								<Text size="14" weight="600" color="tertiary"> &nbsp;#{{ claim.id }} </Text>
+								<Text size="14" weight="600" color="primary"> Vault </Text>
+								<Text size="14" weight="600" color="tertiary"> &nbsp;{{ vault?.name }} </Text>
 							</Flex>
 						</Flex>
 
@@ -325,21 +199,13 @@ const buttonState = computed(() => {
 
 							<Flex>
 								<Text size="14" weight="600" color="primary">
-									{{ numberWithSymbol(claim.amount.toFixed(2), ",") }}
+									{{ numberWithSymbol(availableClaims.amount, ",") }}
 								</Text>
 								<Text size="14" weight="600" color="tertiary"> &nbsp;ꜩ </Text></Flex
 							>
 						</Flex>
 					</Flex>
 				</Flex>
-
-				<Pagination
-					v-if="availableClaims.length > 5"
-					v-model="paginationPage"
-					:total="availableClaims.length"
-					:limit="5"
-					disable-arrows
-				/>
 			</Flex>
 
 			<Button
@@ -392,5 +258,19 @@ const buttonState = computed(() => {
 	width: 20px;
 	height: 20px;
 	border-radius: 50%;
+}
+
+.avatar_placeholder {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--app-bg);
+	color: #000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
 }
 </style>

@@ -223,3 +223,29 @@ export const AGENT_BY_VAULT_QUERY = `
     }
   }
 `
+
+/**
+ * Fetch user portfolio statistics from the materialized view.
+ * Includes net position (deposited - withdrawn), total shares, and lifetime rewards.
+ */
+export const USER_STATISTICS_QUERY = `
+  query GetUserStatistics($address: String!, $vault: String = "%") {
+    userStatistics(where: { 
+      address: { _eq: $address },
+      vaultAddress: { _ilike: $vault }
+    }) {
+      address
+      vaultAddress
+      totalDeposited
+      totalWithdrawn
+      netPosition
+      totalShares
+      totalRewardsEarned
+      totalActions
+      depositCount
+      withdrawalCount
+      firstActionAt
+      lastActionAt
+    }
+  }
+`

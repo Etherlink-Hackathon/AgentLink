@@ -1,3 +1,5 @@
+from datetime import UTC
+from datetime import datetime
 from decimal import Decimal
 
 import eth_abi
@@ -71,6 +73,7 @@ async def on_multi_hop_arbitrage_executed(
 
     decimals = asset_tokens.decimals if asset_tokens else 18
     profit = Decimal(raw_profit) / Decimal(10**decimals)
+    timestamp = datetime.fromtimestamp(event.data.timestamp, tz=UTC)
 
     # 5. Resolve pool/token metadata and build step-by-step route for the UI
     steps_metadata = []
@@ -145,7 +148,7 @@ async def on_multi_hop_arbitrage_executed(
         hops=hops,
         route_details={'steps': steps_metadata},
         profit=profit,
-        timestamp=event.data.timestamp,
+        timestamp=timestamp,
         transaction_hash=event.data.transaction_hash,
     )
 
@@ -155,7 +158,7 @@ async def on_multi_hop_arbitrage_executed(
     await VaultYield.create(
         vault=vault,
         profit=profit,
-        timestamp=event.data.timestamp,
+        timestamp=timestamp,
         execution=execution,
         dex_pool=first_pool,
     )
@@ -187,7 +190,7 @@ async def on_multi_hop_arbitrage_executed(
                     execution=execution,
                     share_ratio=share_ratio,
                     reward_assets=reward_assets,
-                    timestamp=event.data.timestamp,
+                    timestamp=timestamp,
                 )
             )
 

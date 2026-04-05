@@ -83,23 +83,38 @@ async def run_arbitrage(ctx: HookContext, vault_address: str, min_profit_usd: fl
 
     for ev in evaluations:
         opp = ev['opportunity']
-        status = 'EXECUTE' if ev['decision'] == 'EXECUTE' else 'PENDING'
+        heuristics_passed = ev['decision'] == 'EXECUTE'
+        status = 'EXECUTE' if heuristics_passed else 'PENDING'
 
         # 3. AI Review (if heuristics approve)
         ai_review = None
-        if status == 'EXECUTE':
+        if heuristics_passed:
+            logger.info('🤖 Heuristics passed for %s (+%.2f) - Requesting AI Review...', opp['pair_id'], ev['net_profit_usd'])
             ai_review = await ai_soul.review(opp, strategy_config=agent.strategy_config)
-            if ai_review and ai_review.get('action') == 'REJECT':
-                status = 'PENDING'  # AI veto
-                logger.info('AI Vetoed opportunity %s: %s', opp['pair_id'], ai_review.get('reason'))
+            
+            if ai_review:
+                action = ai_review.get('action', 'REJECT')
+                confidence = ai_review.get('confidence', 0.0)
+                reason = ai_review.get('reason', 'No reason given')
+                
+                if action == 'REJECT':
+                    status = 'PENDING'  # AI veto
+                    logger.warning('❌ AI VETO for %s: %s (Confidence: %.1f)', opp['pair_id'], reason, confidence)
+                else:
+                    logger.info('✅ AI APPROVAL: %s (Confidence: %.1f)', reason, confidence)
+            else:
+                status = 'PENDING' # Fallback to pending if AI review fails
+                logger.warning('⚠️ AI Review failed for %s. Skipping for safety.', opp['pair_id'])
 
         # Create persistent decision record
-        decision = await AgentDecision.create(
+        await AgentDecision.create(
             vault=vault,
             agent=agent,
             status=status,
-            heuristics_verdict='APPROVE' if ev['decision'] == 'EXECUTE' else 'REJECT',
+            heuristics_verdict='APPROVE' if heuristics_passed else 'REJECT',
             gemini_verdict=ai_review.get('action') if ai_review else None,
+            confidence=ai_review.get('confidence') if ai_review else None,
+            reason=ai_review.get('reason') if ai_review else ev.get('reason'),
             opportunity_details={
                 'pair_id': opp['pair_id'],
                 'net_profit_usd': float(ev['net_profit_usd']),
@@ -108,7 +123,7 @@ async def run_arbitrage(ctx: HookContext, vault_address: str, min_profit_usd: fl
                 'sell_pool': opp['sell_pool'],
                 'xtz_price': xtz_price,
                 'gas_price_gwei': gas_price / 10**9,
-                'ai_reason': ai_review.get('reason') if ai_review else None,
+                'ai_params': ai_review.get('params') if ai_review else None,
             },
         )
 

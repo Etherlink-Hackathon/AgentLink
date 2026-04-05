@@ -11,12 +11,35 @@ const emit = defineEmits(["onDeposit", "onWithdraw"])
 
 const props = defineProps({
 	vault: Object,
+	userPosition: {
+		type: Object,
+		default: () => ({ redeemableAssets: "0", onChainShares: "0" })
+	}
 })
 
 const activeTab = ref("deposit")
 const amount = ref("")
 
-const balance = computed(() => accountStore.balance || "0")
+/** Wallet balance for deposit tab */
+const walletBalance = computed(() => accountStore.balance || "0")
+
+/**
+ * On-chain redeemable assets for withdraw tab.
+ * previewRedeem(sharesBalance) = the exact amount the user would get back RIGHT NOW.
+ */
+const redeemableBalance = computed(() => {
+	const raw = props.userPosition?.redeemableAssets || "0"
+	try {
+		const assetDecimals = chainConfig[currentNetwork.value].nativeCurrency.decimals
+		return (parseFloat(raw) / 10 ** assetDecimals).toString()
+	} catch {
+		return "0"
+	}
+})
+
+const displayBalance = computed(() => 
+	activeTab.value === 'withdraw' ? redeemableBalance.value : walletBalance.value
+)
 
 const nativeSymbol = computed(() => {
 	const net = currentNetwork.value || 'mainnet'
@@ -24,7 +47,7 @@ const nativeSymbol = computed(() => {
 })
 
 const handlePreset = (preset) => {
-	const currentBalance = parseFloat(balance.value)
+	const currentBalance = parseFloat(displayBalance.value)
 	if (preset === 'MAX') {
 		amount.value = currentBalance.toString()
 	} else {
@@ -37,6 +60,11 @@ const handleConfirm = () => {
 		emit('onDeposit', amount.value)
 	} else {
 		emit('onWithdraw', amount.value)
+		// emit('onWithdraw', {
+		// 	assetAmount: amount.value,
+		// 	onChainShares: props.userPosition?.onChainShares || "0",
+		// 	redeemableAssets: props.userPosition?.redeemableAssets || "0",
+		// })
 	}
 }
 </script>
@@ -66,7 +94,8 @@ const handleConfirm = () => {
 				<Flex justify="between" align="center">
 					<Text size="12" weight="700" color="tertiary" :class="$style.label">AMOUNT</Text>
 					<Text size="12" weight="700" color="tertiary" :class="$style.balance">
-						Balance: {{ parseFloat(balance).toFixed(4) }} {{ nativeSymbol }}
+						Balance: 
+						{{ parseFloat(displayBalance).toFixed(4) }} {{ nativeSymbol }}
 					</Text>
 				</Flex>
 				<Input

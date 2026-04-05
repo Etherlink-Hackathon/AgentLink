@@ -1,3 +1,5 @@
+from datetime import UTC
+from datetime import datetime
 from decimal import Decimal
 
 from arbitrage_vault.models import User
@@ -29,7 +31,7 @@ async def on_withdraw(
     assets = Decimal(event.payload.assets) / Decimal(10**18)
     shares = Decimal(event.payload.shares) / Decimal(10**18)
     owner = event.payload.owner.lower()
-    timestamp = event.data.timestamp
+    timestamp = datetime.fromtimestamp(event.data.timestamp, tz=UTC)
 
     # 1. Get or create the User profile
     user, created = await User.get_or_create(

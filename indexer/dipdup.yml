@@ -86,4 +86,4 @@ jobs:
       min_profit_usd: 0
   refresh_views_scheduler:
     hook: refresh_views
-    crontab: "*/5 * * * *" # Every 5 minutes
+    crontab: "1-59/5 * * * *" # Every 5 minutes, staggered by 1 minute from arbitrage_cycle

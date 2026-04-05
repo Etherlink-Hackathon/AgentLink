@@ -1,3 +1,6 @@
+from datetime import UTC
+from datetime import datetime
+
 from arbitrage_vault.models import Agent
 from arbitrage_vault.models import AgentExecution
 from arbitrage_vault.models import DexPool
@@ -66,6 +69,7 @@ async def on_arbitrage_executed(
     )
 
     profit = event.payload.profit / 10**18
+    timestamp = datetime.fromtimestamp(event.data.timestamp, tz=UTC)
 
     # 5. Create AgentExecution
     execution = await AgentExecution.create(
@@ -76,7 +80,7 @@ async def on_arbitrage_executed(
         dex_sell=dex_sell,
         token_trade=event.payload.tokenTrade,
         profit=profit,
-        timestamp=event.data.timestamp,
+        timestamp=timestamp,
         transaction_hash=event.data.transaction_hash,
     )
 
@@ -84,7 +88,7 @@ async def on_arbitrage_executed(
     await VaultYield.create(
         vault=vault,
         profit=profit,
-        timestamp=event.data.timestamp,
+        timestamp=timestamp,
         execution=execution,
         dex_pool=dex_buy,
     )

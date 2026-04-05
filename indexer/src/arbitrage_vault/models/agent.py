@@ -21,6 +21,8 @@ class AgentDecision(Model):
     status = fields.CharField(max_length=20, default='PENDING', index=True)  # PENDING, EXECUTE, SENDING, SENT, FAILED
     heuristics_verdict = fields.CharField(max_length=10, null=True)  # APPROVE, REJECT
     gemini_verdict = fields.CharField(max_length=10, null=True)  # APPROVE, REJECT, TUNE
+    confidence = fields.FloatField(null=True)
+    reason = fields.TextField(null=True)
     opportunity_details = fields.JSONField()
     final_params = fields.JSONField(null=True)  # {max_gas, slippage_bps}
     tx_hash = fields.CharField(max_length=66, null=True, index=True)
