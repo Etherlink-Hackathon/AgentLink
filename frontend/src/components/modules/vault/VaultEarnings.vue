@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed } from "vue"
 import VueApexCharts from "vue3-apexcharts"
+import { currentNetwork } from "@/services/sdk"
+import { chainConfig } from "@config"
 
 const props = defineProps({
 	vault: Object,
@@ -65,7 +67,7 @@ const chartOptions = computed(() => ({
 		theme: 'dark',
 		x: { show: false },
 		y: {
-			formatter: (val) => `${val} ${props.vault?.token1?.symbol || 'ETH'}`
+			formatter: (val) => `${val} ${chainConfig[currentNetwork.value].nativeCurrency.symbol}`
 		}
 	}
 }))

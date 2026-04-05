@@ -18,6 +18,8 @@ export const fetchVaults = async () => {
 
         return result.data.vaults.map(vault => {
             const latestSnapshot = vault.snapshots[0] || {}
+            const totalAssets = parseFloat(latestSnapshot.totalAssets || 0)
+            const totalSupply = parseFloat(latestSnapshot.totalSupply || 0)
 
             return {
                 id: vault.address,
@@ -27,7 +29,8 @@ export const fetchVaults = async () => {
                 symbol: vault.symbol,
                 strategyType: "Cross-DEX Arbitrage",
                 status: "active",
-                tvl: latestSnapshot.totalAssets || 0,
+                tvl: totalAssets,
+                sharePrice: totalSupply > 0 ? totalAssets / totalSupply : 1.0,
                 apy: latestSnapshot.apy || 0,
                 revenue: latestSnapshot.yield1d || 0,
                 created_at: vault.createdAt,
@@ -61,6 +64,8 @@ export const fetchVaultById = async (address) => {
         if (!vault) throw new Error("Vault not found")
 
         const latestSnapshot = vault.snapshots[0] || {}
+        const totalAssets = parseFloat(latestSnapshot.totalAssets || 0)
+        const totalSupply = parseFloat(latestSnapshot.totalSupply || 0)
 
         return {
             id: vault.address,
@@ -69,8 +74,10 @@ export const fetchVaultById = async (address) => {
             symbol: vault.symbol,
             strategyType: "Cross-DEX Arbitrage",
             status: "active",
-            tvl: latestSnapshot.totalAssets || 0,
+            tvl: totalAssets,
+            sharePrice: totalSupply > 0 ? totalAssets / totalSupply : 1.0,
             apy: latestSnapshot.apy || 0,
+            revenue: latestSnapshot.yield1d || 0,
             tags: ["High Yield", "Etherlink", "Arbitrage"],
             description: `This strategy exploits price discrepancies for the Etherlink Dex Pools.`,
             yield_history: vault.yields || [],

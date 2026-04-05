@@ -152,10 +152,15 @@ onMounted(async () => {
     subscriptions.push(subscribeToVault(props.id, (updatedVault) => {
       if (updatedVault) {
         const latestSnapshot = updatedVault.snapshots[0] || {}
+        const totalAssets = parseFloat(latestSnapshot.totalAssets || 0)
+        const totalSupply = parseFloat(latestSnapshot.totalSupply || 0)
+
         vault.value = {
           ...vault.value,
-          tvl: latestSnapshot.totalAssets || 0,
-          apy: latestSnapshot.apy || 0
+          tvl: totalAssets,
+          sharePrice: totalSupply > 0 ? totalAssets / totalSupply : 1.0,
+          apy: latestSnapshot.apy || 0,
+          revenue: latestSnapshot.yield1d || 0
         }
       }
     }))
@@ -269,8 +274,8 @@ onUnmounted(() => {
 			:show="showDepositModal" 
 			:initialAmount="selectedAmount"
 			:selectedPool="{ address: vault.address, name: vault.name, entryLockPeriod: 3600 }"
-			:state="{ totalLiquidity: 100, sharePrice: 1.05 }"
-			:apy="8.5"
+			:state="{ totalLiquidity: vault.tvl || 0, sharePrice: vault.sharePrice || 1.0 }"
+			:apy="(vault.apy || 0) / 100"
 			@onClose="showDepositModal = false"
 		/>
 

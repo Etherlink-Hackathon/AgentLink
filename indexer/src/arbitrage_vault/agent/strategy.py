@@ -13,24 +13,30 @@ class ArbitrageHeuristics:
         self.min_profit_usd = min_profit_usd
         self.max_slippage_bps = max_slippage_bps
 
-    def evaluate(self, opportunity: dict[str, Any]) -> dict[str, Any]:
+    def evaluate(self, opportunity: dict[str, Any], strategy_config: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         Evaluate if an opportunity meets the minimum viability thresholds.
         """
+        # Load config with defaults
+        config = strategy_config or {}
+        min_p = config.get('min_profit_usd', self.min_profit_usd)
+        slippage = config.get('max_slippage_bps', self.max_slippage_bps)
+
         net_profit = opportunity.get('net_profit_usd', 0)
         spread_pct = opportunity.get('spread_pct', 0)
 
         # 1. Profitability Floor
-        if net_profit < self.min_profit_usd:
+        if net_profit < min_p:
             return {
                 'verdict': 'REJECT',
-                'reason': f'Profit ${net_profit:.4f} below floor ${self.min_profit_usd}',
+                'reason': f'Profit ${net_profit:.4f} below floor ${min_p:.4f}',
                 'confidence': 1.0,
             }
 
         # 2. Spread Quality Check
-        if spread_pct < 0.05:  # 0.05%
-            return {'verdict': 'REJECT', 'reason': f'Spread {spread_pct:.4f}% too tight', 'confidence': 0.9}
+        # GeckoTerminal uses 0.0001 for 0.01%. 
+        if spread_pct < 0.0001:  # 0.01%
+            return {'verdict': 'REJECT', 'reason': f'Spread {spread_pct*100:.4f}% too tight', 'confidence': 0.9}
 
         # 3. Path Sanitation
         if not opportunity.get('buy_pool') or not opportunity.get('sell_pool'):
@@ -40,5 +46,6 @@ class ArbitrageHeuristics:
             'verdict': 'APPROVE',
             'reason': 'Profitability and spread invariants met.',
             'confidence': 1.0,
-            'params': {'max_gas_premium_pct': 20, 'slippage_bps': self.max_slippage_bps},
+            'params': {'max_gas_premium_pct': 20, 'slippage_bps': slippage},
         }
+

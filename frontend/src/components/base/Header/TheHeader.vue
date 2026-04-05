@@ -132,7 +132,7 @@ const pkh = computed(() => accountStore.pkh)
 						<div :class="$style.mobile_menu__title">Community</div>
 
 						<div :class="$style.mobile_menu__links">
-							<a href="https://x.com/AgentLink" target="_blank" :class="$style.mobile_menu__link">
+							<a href="https://x.com/wagerEtherlink" target="_blank" :class="$style.mobile_menu__link">
 								<div :class="$style.left">
 									<Icon name="twitter" size="14" />
 									<span>X / Twitter</span>

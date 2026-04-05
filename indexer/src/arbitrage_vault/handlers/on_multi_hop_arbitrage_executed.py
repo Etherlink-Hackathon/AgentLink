@@ -1,5 +1,6 @@
 from datetime import UTC
 from datetime import datetime
+from datetime import timedelta
 from decimal import Decimal
 
 import eth_abi
@@ -20,6 +21,7 @@ from arbitrage_vault.utils import fetch_pool_metadata
 from arbitrage_vault.utils import fetch_token_metadata
 from dipdup.context import HandlerContext
 from dipdup.models.evm import EvmEvent
+from tortoise.functions import Sum
 
 
 async def on_multi_hop_arbitrage_executed(
@@ -134,8 +136,8 @@ async def on_multi_hop_arbitrage_executed(
         steps_metadata.append(
             {
                 'dex': p.name,
-                'token_in': tin.symbol if tin else 'XTZ',
-                'token_out': tout.symbol if tout else 'XTZ',
+                'token_in': tin.symbol if tin else 'ꜩ',
+                'token_out': tout.symbol if tout else 'ꜩ',
                 'pool_address': p_addr,
             }
         )
@@ -163,15 +165,50 @@ async def on_multi_hop_arbitrage_executed(
         dex_pool=first_pool,
     )
 
-    # 8. Auto-populate UserReward for all active depositors in this vault
-    # Use the most recent VaultSnapshot's total_supply as the denominator
-    latest_snapshot = await VaultSnapshot.filter(vault=vault).order_by('-timestamp').first()
-    total_supply = Decimal(latest_snapshot.total_supply) if latest_snapshot else None
+    # 8. Update Vault total_assets with profit
+    vault.total_assets += profit
+    await vault.save(update_fields=['total_assets'])
+
+    # 9. Calculate Yield 1d and APY
+    cutoff = timestamp - timedelta(days=1)
+
+    # Calculate 24h yield sum using Tortoise aggregation
+    yield_results = (
+        await VaultYield.filter(vault=vault, timestamp__gte=cutoff)
+        .annotate(total_profit=Sum('profit'))
+        .values('total_profit')
+    )
+
+    yield_1d_raw = yield_results[0]['total_profit'] if yield_results else Decimal(0)
+    yield_1d = Decimal(yield_1d_raw or 0)
+
+    # Compounded APY: (1 + daily_rate)^365 - 1
+    apy = Decimal(0)
+    if vault.total_assets > 0 and yield_1d > 0:
+        daily_rate = yield_1d / vault.total_assets
+        if daily_rate < 2:  # Sanity check: max 200% daily yield for compounding
+            apy = ((Decimal(1) + daily_rate) ** 365 - Decimal(1)) * Decimal(100)
+        else:
+            apy = daily_rate * Decimal(365) * Decimal(100)
+
+    # 10. Create VaultSnapshot
+    await VaultSnapshot.create(
+        vault=vault,
+        total_assets=vault.total_assets,
+        total_supply=vault.total_supply,
+        yield_1d=yield_1d,
+        apy=apy,
+        timestamp=timestamp,
+    )
+
+    # 11. Auto-populate UserReward for all active depositors in this vault
+    # Use the current vault.total_supply as the denominator
+    total_supply = vault.total_supply
 
     if total_supply and total_supply > 0:
         # Collect unique depositor addresses for this vault
         depositor_addresses = (
-            await vault.actions.filter(action_type='DEPOSIT').values_list('user', flat=True).distinct()
+            await vault.actions.filter(action_type='DEPOSIT').distinct().values_list('user', flat=True)
         )
 
         user_rewards_to_create = []

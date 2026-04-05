@@ -11,6 +11,8 @@ class Vault(Model):
     creator = fields.CharField(max_length=42)
     strategist = fields.CharField(max_length=42)
     pools = fields.ManyToManyField('models.DexPool', related_name='vaults')
+    total_assets = fields.DecimalField(max_digits=36, decimal_places=18, default=0)
+    total_supply = fields.DecimalField(max_digits=36, decimal_places=18, default=0)
 
     class Meta:
         table = 'vaults'

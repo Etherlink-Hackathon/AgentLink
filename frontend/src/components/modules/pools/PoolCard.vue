@@ -188,7 +188,7 @@ const copy = (target) => {
 		<Flex justify="between">
 			<Flex align="center" gap="16">
 				<div :class="$style.symbols">
-					<img :src="getCurrencyIcon('XTZ')" alt="symbol" />
+					<img :src="getCurrencyIcon('ꜩ')" alt="symbol" />
 					<img :src="getCurrencyIcon('USD')" alt="symbol" />
 				</div>
 

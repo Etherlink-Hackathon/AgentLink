@@ -4,8 +4,9 @@ import Badge from "@ui/Badge.vue"
 import Tooltip from "@ui/Tooltip.vue"
 import { getCurrencyIcon, getDexIcon } from "@utils/misc"
 import { abbreviateNumber } from "@utils/amounts"
-import { verifiedMakers, NETWORK_TYPE } from "~/services/config"
+import { verifiedMakers, NETWORK_TYPE, chainConfig } from "~/services/config"
 import Icon from "~/components/icons/Icon.vue"
+import { currentNetwork } from "@sdk"
 
 const props = defineProps({
 	vault: { type: Object, required: true },
@@ -103,11 +104,11 @@ const statusColor = computed(() => {
 		<div :class="$style.footer">
 			<Flex direction="column" gap="4">
 				<span :class="$style.footer_label">TVL</span>
-				<span :class="$style.footer_value">${{ abbreviateNumber(vault.tvl) }}</span>
+				<span :class="$style.footer_value">{{ abbreviateNumber(vault.tvl) }} {{ chainConfig[currentNetwork.value]?.nativeCurrency?.symbol || 'ꜩ' }}</span>
 			</Flex>
 			<Flex direction="column" gap="4">
 				<span :class="$style.footer_label">EST. REVENUE (24H)</span>
-				<span :class="$style.footer_value">${{ vault.revenue || '0.00' }}</span>
+				<span :class="$style.footer_value">{{ vault.revenue || '0.00' }} {{ chainConfig[currentNetwork.value]?.nativeCurrency?.symbol || 'ꜩ' }}</span>
 			</Flex>
 			<Flex direction="column" align="end" gap="4">
 				<span :class="$style.footer_label">APY</span>

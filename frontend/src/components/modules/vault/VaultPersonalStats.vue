@@ -34,8 +34,12 @@ const accountStore = useAccountStore()
 
 // Net deposited position from indexer (historical)
 const tvl = computed(() => {
-	const raw = props.position?.netPosition || "0"
-	return parseFloat(raw)
+	const raw = props.position?.redeemableAssets || "0"
+	try {
+		return parseFloat(raw) / 10 ** 18
+	} catch {
+		return 0
+	}
 })
 
 // Live on-chain redeemable amount (what user actually gets back now)
@@ -80,41 +84,24 @@ const symbol = computed(() => props.vault?.assetSymbol || props.vault?.token1?.s
 			</Tooltip>
 		</div>
 
-		<!-- Returning -->
-		<div :class="$style.sector">
-			<div :class="$style.base">
-				<div :class="$style.name">RETURNING</div>
-
-				<div :class="$style.amount">
-					{{ numberWithSymbol(returning.toFixed(2), ",") }}
-					<span>{{ symbol }}</span>
-				</div>
-			</div>
-
-			<Tooltip placement="bottom-start">
-				<div :class="$style.icon">
-					<Icon name="check" size="20" color="tertiary"/>
-				</div>
-
-				<template #content>
-					Estimated withdrawal amount based on current strategy liquidity
-				</template>
-			</Tooltip>
-		</div>
 
 		<!-- Potential -->
 		<div :class="$style.sector">
 			<div :class="$style.base">
-				<div :class="$style.name">POTENTIAL</div>
+				<div :class="$style.name">EARNED</div>
 
 				<div :class="$style.amount">
 					{{ potential.toFixed(2) }} <span>{{ symbol }}</span>
 				</div>
 			</div>
 
-			<div :class="$style.icon">
-				<Icon name="plus_circle" size="20" color="tertiary"/>
-			</div>
+			<Tooltip placement="bottom-start">
+				<div :class="$style.icon">
+					<Icon name="plus_circle" size="20" color="tertiary"/>
+				</div>
+
+				<template #content> Your Total Rewards </template>
+			</Tooltip>
 		</div>
 	</div>
 
@@ -151,8 +138,7 @@ const symbol = computed(() => props.vault?.assetSymbol || props.vault?.token1?.s
 	flex: 1;
 }
 
-.sector:nth-child(1),
-.sector:nth-child(2) {
+.sector:nth-child(1){
 	border-right: 2px solid rgba(255, 255, 255, 0.05);
 	padding-right: 18px;
 }

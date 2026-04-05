@@ -71,14 +71,19 @@ class AgentExecutor:
             await decision.save()
 
             try:
-                # 2. Heuristics Check (Math)
-                h_verdict = self.heuristics.evaluate(decision.opportunity_details)
+                # 2. Load Agent Config
+                agent = await decision.agent
+                config = agent.strategy_config or {}
+
+                # 3. Heuristics Check (Math)
+                h_verdict = self.heuristics.evaluate(decision.opportunity_details, strategy_config=config)
                 decision.heuristics_verdict = h_verdict['verdict']
 
-                # 3. Gemini Soul Check (Context)
-                g_verdict = await self.soul.review(decision.opportunity_details)
+                # 4. Gemini Soul Check (Context)
+                g_verdict = await self.soul.review(decision.opportunity_details, strategy_config=config)
                 if g_verdict:
                     decision.gemini_verdict = g_verdict['action']
+
 
                 # 4. Decision logic (Math wins OR AI approves)
                 if decision.heuristics_verdict == 'APPROVE' or (g_verdict and g_verdict['action'] == 'APPROVE'):
@@ -116,7 +121,7 @@ class AgentExecutor:
         # GeckoTerminal uses standard addresses. We need to be sure which one is 'tokenIn'
         # For now, we assume a simple 2-hop: Vault Asset -> Token X -> Vault Asset
         # In a real environment, we'd resolve this from the Vault's .asset() call
-        vault_asset = await vault_contract.functions.asset().call()
+        vault_asset = vault_contract.functions.asset().call()
 
         # Determine the intermediate token (Token X)
         t0 = self.w3.to_checksum_address(buy_pool['token0']['address'])
@@ -144,7 +149,7 @@ class AgentExecutor:
         amount_in = 10**18  # 1 unit default for testing or use a percentage of vault balance
         # In a production agent, we'd fetch the actual vault balance
         try:
-            amount_in = await vault_contract.functions.totalAssets().call()
+            amount_in = vault_contract.functions.totalAssets().call()
             # Use only 10% for safety in tests if not specified
             amount_in = amount_in // 10
         except Exception:
@@ -180,7 +185,7 @@ class AgentExecutor:
             logger.info('DRY RUN: Transaction signed, skipping broadcast. Decision %s', decision.id)
             return f'0x_dry_run_hash_{decision.id}'
 
-        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
         logger.info('🔔 Arbitrage transaction sent: %s', tx_hash.hex())
 
         return tx_hash.hex()

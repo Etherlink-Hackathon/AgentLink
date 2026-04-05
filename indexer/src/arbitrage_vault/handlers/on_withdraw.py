@@ -6,6 +6,7 @@ from arbitrage_vault.models import User
 from arbitrage_vault.models import UserAction
 from arbitrage_vault.models import UserTVL
 from arbitrage_vault.models import Vault
+from arbitrage_vault.models import VaultSnapshot
 from arbitrage_vault.types.ArbitrageVault.evm_events.withdraw import WithdrawPayload
 from arbitrage_vault.utils import DEFAULT_STRATEGIST
 from arbitrage_vault.utils import ZERO_ADDRESS
@@ -72,5 +73,17 @@ async def on_withdraw(
         total_assets=max(Decimal(0), user.total_deposited - user.total_withdrawn),
         shares=user.total_shares,
         action_type='WITHDRAW',
+        timestamp=timestamp,
+    )
+
+    # 4. Update Vault state and create VaultSnapshot
+    vault.total_assets = max(Decimal(0), vault.total_assets - assets)
+    vault.total_supply = max(Decimal(0), vault.total_supply - shares)
+    await vault.save(update_fields=['total_assets', 'total_supply'])
+
+    await VaultSnapshot.create(
+        vault=vault,
+        total_assets=vault.total_assets,
+        total_supply=vault.total_supply,
         timestamp=timestamp,
     )

@@ -43,7 +43,7 @@ const displayBalance = computed(() =>
 
 const nativeSymbol = computed(() => {
 	const net = currentNetwork.value || 'mainnet'
-	return chainConfig[net]?.nativeCurrency?.symbol || 'XTZ'
+	return chainConfig[net]?.nativeCurrency?.symbol || 'ꜩ'
 })
 
 const handlePreset = (preset) => {

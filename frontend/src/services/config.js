@@ -11,8 +11,8 @@ export const chainConfig = {
     name: 'Etherlink Mainnet',
     network: 'mainnet',
     nativeCurrency: {
-      name: 'XTZ',
-      symbol: 'XTZ',
+      name: 'ꜩ',
+      symbol: 'ꜩ',
       decimals: 18
     },
     rpcUrls: {
@@ -34,8 +34,8 @@ export const chainConfig = {
     name: 'Etherlink Shadownet',
     network: 'testnet',
     nativeCurrency: {
-      name: 'XTZ',
-      symbol: 'XTZ',
+      name: 'ꜩ',
+      symbol: 'ꜩ',
       decimals: 18
     },
     rpcUrls: {

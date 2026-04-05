@@ -50,7 +50,7 @@ const communityLinks = ref([
 		icon: "twitter",
 		title: "X / Twitter",
 		description: "Latest news and updates",
-		url: "https://x.com/AgentLink",
+		url: "https://x.com/wagerEtherlink",
 	},
 ])
 
@@ -129,7 +129,7 @@ watch(
 
 					<Flex align="center" justify="between" :class="$style.bottom">
 						<Flex gap="8">
-							<Button size="small" type="tertiary" link="https://x.com/AgentLink" target="_blank">
+							<Button size="small" type="tertiary" link="https://x.com/wagerEtherlink" target="_blank">
 								<Icon name="help" size="16" color="tertiary" />Support
 							</Button>
 						</Flex>
@@ -164,7 +164,7 @@ watch(
 
 					<Flex align="center" justify="between" :class="$style.bottom">
 						<Flex gap="8">
-							<Button size="small" type="tertiary" link="https://x.com/AgentLink" target="_blank">
+							<Button size="small" type="tertiary" link="https://x.com/wagerEtherlink" target="_blank">
 								<Icon name="help" size="16" color="tertiary" />Support
 							</Button>
 						</Flex>
@@ -199,7 +199,7 @@ watch(
 
 					<Flex align="center" justify="between" :class="$style.bottom">
 						<Flex gap="8">
-							<Button size="small" type="tertiary" link="https://x.com/AgentLink" target="_blank">
+							<Button size="small" type="tertiary" link="https://x.com/wagerEtherlink" target="_blank">
 								<Icon name="help" size="16" color="tertiary" />Support
 							</Button>
 						</Flex>

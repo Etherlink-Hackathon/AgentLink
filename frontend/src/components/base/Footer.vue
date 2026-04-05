@@ -183,7 +183,7 @@ onBeforeUnmount(() => {
 					</div>
 
 					<div :class="$style.right">
-						<Button type="secondary" size="small" link="https://x.com/AgentLink" target="_blank" :class="$style.footer_btn">
+						<Button type="secondary" size="small" link="https://x.com/wagerEtherlink" target="_blank" :class="$style.footer_btn">
 							X
 							<Icon name="arrowrighttop" size="16" color="tertiary" />
 						</Button>

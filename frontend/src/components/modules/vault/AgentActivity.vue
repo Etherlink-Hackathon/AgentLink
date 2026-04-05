@@ -30,10 +30,31 @@ const formatTxTime = (ts) => {
 }
 
 const getLogMessage = (log) => {
-	if (log.status === "error") return `Error: ${log.error}`
-	if (log.geminiVerdict === "EXECUTE") return `🚀 Gemini detected opportunity! Executing swap...`
-	if (log.heuristicsVerdict === "EXECUTE") return `⚡ Heuristics triggered scan. Found profitable route.`
-	return `🔍 Scanning pools... ${log.status}`
+	if (log.status === "error") return `❌ Error: ${log.error}`
+	
+	const pair = log.opportunityDetails?.pair_id || 'Unknown Pair'
+	const profit = log.opportunityDetails?.net_profit_usd ? 
+		`($${parseFloat(log.opportunityDetails.net_profit_usd).toFixed(2)} expected)` : ''
+	const profitValue = log.opportunityDetails?.net_profit_usd
+	const profitStr = profitValue ? `($${parseFloat(profitValue).toFixed(2)} expected)` : ''
+
+	// 1. Handle Execution Status
+	if (log.status === "SUCCESS") return `✅ Arbitrage executed on ${pair} ${profitStr}`
+	if (log.status === "FAILED") {
+		// Differentiate between intentional rejection and execution failure
+		if (log.heuristicsVerdict === "REJECT" || log.geminiVerdict === "REJECT") {
+			return `🚫 Opportunity rejected: ${pair} ${profitStr}. Reason: ${log.error || 'Below thresholds'}`
+		}
+		return `⚠️ Execution failed for ${pair}: ${log.error}`
+	}
+
+	// 2. Handle Verdicts for PENDING or IN_PROGRESS states
+	if (log.geminiVerdict === "APPROVE") return `🚀 Gemini approved ${pair} ${profitStr}!`
+	if (log.geminiVerdict === "EXECUTE") return `🔥 Gemini triggered immediate execution for ${pair}!`
+	if (log.heuristicsVerdict === "EXECUTE") return `⚡ Heuristics found profitable route for ${pair}...`
+	
+	// 3. Status-based message
+	return `🔍 Scanning ${pair}... ${log.status.toLowerCase()}`
 }
 
 const paginatedHistory = computed(() => {

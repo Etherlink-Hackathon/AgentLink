@@ -177,7 +177,14 @@ export const USER_ACTIONS_QUERY = `
  */
 export const AGENT_DECISIONS_QUERY = `
   query GetAgentDecisions($limit: Int = 20) {
-    agentDecisions: agentDecisions(order_by: { createdAt: desc }, limit: $limit) {
+    agentDecisions: agentDecisions(
+      where: { 
+        heuristicsVerdict: { _neq: "FAIL", _is_null: false },
+        geminiVerdict: { _neq: "FAIL", _is_null: false }
+      },
+      order_by: { createdAt: desc }, 
+      limit: $limit
+    ) {
       id
       vaultId
       status

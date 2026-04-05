@@ -1,29 +1,73 @@
 <script setup>
+/**
+ * Vendor
+ */
+import { computed } from "vue"
+
+/**
+ * Utils
+ */
+import { abbreviateNumber } from "@utils/amounts"
+import { currentNetwork } from "@sdk"
+import { chainConfig } from "@config"
+
 const props = defineProps({
 	vault: Object,
 })
+
+const tvl = computed(() => {
+	const val = parseFloat(props.vault?.tvl || 0)
+	if (val >= 1e6) return abbreviateNumber(val)
+	return val.toLocaleString(undefined, { 
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2 
+	})
+})
+
+const revenue = computed(() => {
+	const val = parseFloat(props.vault?.revenue || 0)
+	if (val >= 1e6) return abbreviateNumber(val)
+	return val.toLocaleString(undefined, { 
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 6 
+	})
+})
+
+const apy = computed(() => {
+	const val = parseFloat(props.vault?.apy || 0)
+	return val.toLocaleString(undefined, { 
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 2 
+	})
+})
+
+const activeStrategies = computed(() => {
+	return props.vault?.vaultsPools?.length || 0
+})
+console.log(chainConfig)
+console.log(currentNetwork)
 </script>
 
 <template>
 	<div :class="$style.wrapper">
 		<div :class="$style.stat">
 			<Text size="12" weight="600" color="tertiary" :class="$style.label">TOTAL VALUE LOCKED</Text>
-			<Text size="24" weight="700" color="primary">${{ (vault?.tvl || 0).toLocaleString() }}</Text>
+			<Text size="24" weight="700" color="primary">{{ tvl }} {{ chainConfig[currentNetwork.value]?.nativeCurrency?.symbol || 'ꜩ' }}</Text>
 		</div>
 		<div :class="$style.divider" />
 		<div :class="$style.stat">
 			<Text size="12" weight="600" color="tertiary" :class="$style.label">AVERAGE APY</Text>
-			<Text size="24" weight="700" color="green">{{ vault?.apy || 0 }}%</Text>
+			<Text size="24" weight="700" color="green">{{ apy }}%</Text>
 		</div>
 		<div :class="$style.divider" />
 		<div :class="$style.stat">
 			<Text size="12" weight="600" color="tertiary" :class="$style.label">24H YIELD REVENUE</Text>
-			<Text size="24" weight="700" color="primary">${{ ((vault?.tvl || 0) * 0.0005).toLocaleString() }}</Text>
+			<Text size="24" weight="700" color="primary">{{ revenue }} {{ chainConfig[currentNetwork.value]?.nativeCurrency?.symbol || 'ꜩ' }}</Text>
 		</div>
 		<div :class="$style.divider" />
 		<div :class="$style.stat">
 			<Text size="12" weight="600" color="tertiary" :class="$style.label">ACTIVE STRATEGIES</Text>
-			<Text size="24" weight="700" color="primary">4</Text>
+			<Text size="24" weight="700" color="primary">{{ activeStrategies }}</Text>
 		</div>
 	</div>
 </template>
