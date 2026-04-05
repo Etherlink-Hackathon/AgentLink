@@ -22,12 +22,12 @@ const browseLinks = ref([
 		description: "Managed arbitrage strategies",
 		url: "/vaults",
 	},
-	{
-		icon: "money",
-		title: "My Vault",
-		description: "Your vaults and positions",
-		url: "/my-vault",
-	},
+	// {
+	// 	icon: "money",
+	// 	title: "My Vault",
+	// 	description: "Your vaults and positions",
+	// 	url: "/my-vault",
+	// },
 ])
 
 const resourcesLinks = ref([
@@ -37,12 +37,12 @@ const resourcesLinks = ref([
 		description: "Everything you need is here",
 		url: "/docs",
 	},
-	{
-		icon: "map",
-		title: "Roadmap",
-		description: "Explore the product path",
-		url: "/docs",
-	},
+	// {
+	// 	icon: "map",
+	// 	title: "Roadmap",
+	// 	description: "Explore the product path",
+	// 	url: "/docs",
+	// },
 ])
 
 const communityLinks = ref([

@@ -73,7 +73,7 @@ const handleLogout = () => {
 						@click="handleOpenProfile"
 						align="center"
 						gap="12"
-						:class="$style.general_link"
+						:class="[$style.general_link, $style.disabled]"
 						tabindex="1"
 					>
 						<img
@@ -95,7 +95,7 @@ const handleLogout = () => {
 						@click="handleOpenWithdrawals"
 						align="center"
 						gap="12"
-						:class="$style.general_link"
+						:class="[$style.general_link, $style.disabled]"
 						tabindex="1"
 					>
 						<Icon name="money" size="20" :class="$style.icon" />
