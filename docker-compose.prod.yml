@@ -1,5 +1,7 @@
 services:
   # --- Reverse Proxy and SSL ---
+  # We use nginx-proxy and acme-companion for zero-config SSL on the Azure domain.
+  # We point them to a single 'gateway' service that handles path-based routing.
   nginx-proxy:
     image: nginxproxy/nginx-proxy
     container_name: nginx-proxy
@@ -28,6 +30,19 @@ services:
       - DEFAULT_EMAIL=${SSL_EMAIL:-admin@agentlink.com}
     restart: always
 
+  # --- Gateway Nginx (Path-based routing) ---
+  gateway:
+    image: nginx:stable-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    environment:
+      - VIRTUAL_HOST=agentlink.eastus.cloudapp.azure.com
+      - LETSENCRYPT_HOST=agentlink.eastus.cloudapp.azure.com
+    depends_on:
+      - frontend
+      - hasura
+    restart: always
+
   # --- Database ---
   db:
     image: postgres:15
@@ -35,11 +50,11 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-dipdup}
-      - POSTGRES_DB=${POSTGRES_DB:-dipdup}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_USER=${POSTGRES_USER:-huydo}
+      - POSTGRES_DB=${POSTGRES_DB:-huydo}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-huydo2105}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dipdup} -d ${POSTGRES_DB:-dipdup}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-huydo} -d ${POSTGRES_DB:-huydo}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -52,12 +67,10 @@ services:
         condition: service_healthy
     restart: always
     environment:
-      - VIRTUAL_HOST=api.agentlink.com
-      - LETSENCRYPT_HOST=api.agentlink.com
-      - HASURA_GRAPHQL_DATABASE_URL=postgres://${POSTGRES_USER:-dipdup}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-dipdup}
+      - HASURA_GRAPHQL_DATABASE_URL=postgres://${POSTGRES_USER:-huydo}:${POSTGRES_PASSWORD:-huydo2105}@db:5432/${POSTGRES_DB:-huydo}
       - HASURA_GRAPHQL_ENABLE_CONSOLE=true
       - HASURA_GRAPHQL_DEV_MODE=false
-      - HASURA_GRAPHQL_ADMIN_SECRET=${ADMIN_SECRET:-changeme}
+      - HASURA_GRAPHQL_ADMIN_SECRET=${ADMIN_SECRET:-huydo2105}
       - HASURA_GRAPHQL_UNAUTHORIZED_ROLE=user
       - HASURA_GRAPHQL_STRINGIFY_NUMERIC_TYPES=true
 
@@ -66,16 +79,17 @@ services:
     build:
       context: ./frontend
       args:
-        - VITE_GRAPHQL_URL=https://api.agentlink.com/v1/graphql
+        - VITE_GRAPHQL_URL=https://agentlink.eastus.cloudapp.azure.com/v1/graphql
         - VITE_NETWORK_TYPE=mainnet
+        - VITE_NODE_ENV=production
+        - VITE_STATS=TRUE
+        - VITE_AMPLITUDE=2b33eb4dc7dfca637280cb2d0e56a25
+        - VITE_VAULT_ADDRESS=0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d
     restart: always
-    environment:
-      - VIRTUAL_HOST=agentlink.com, www.agentlink.com
-      - LETSENCRYPT_HOST=agentlink.com, www.agentlink.com
     depends_on:
       - hasura
 
-  # --- Core Indexer ---
+  # --- Indexer ---
   indexer:
     build:
       context: ./indexer
@@ -85,27 +99,17 @@ services:
     restart: always
     environment:
       - POSTGRES_HOST=db
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
-      - POSTGRES_USER=${POSTGRES_USER:-dipdup}
-      - POSTGRES_DB=${POSTGRES_DB:-dipdup}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-huydo2105}
+      - POSTGRES_USER=${POSTGRES_USER:-huydo}
+      - POSTGRES_DB=${POSTGRES_DB:-huydo}
+      - ADMIN_SECRET=${ADMIN_SECRET:-huydo2105}
+      - ETHERSCAN_URL=${ETHERSCAN_URL:-https://api.etherscan.io/v2/api?chainId=}
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-XYPSYD24WG49NSWHWCF9VE9HNKF21Z2KM2}
       - RPC_URL=${RPC_URL:-https://node.mainnet.etherlink.com}
-      - VAULT_ADDRESS=${VAULT_ADDRESS}
-
-  # --- Wager Indexer ---
-  wager-backend:
-    build:
-      context: ./wager-backend
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: always
-    environment:
-      - POSTGRES_HOST=db
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
-      - POSTGRES_USER=${POSTGRES_USER:-dipdup}
-      - POSTGRES_DB=${POSTGRES_DB:-dipdup}
-      - ADMIN_SECRET=${ADMIN_SECRET:-changeme}
-      - RPC_URL=${RPC_URL:-https://node.mainnet.etherlink.com}
+      - SUBSQUID_URL=${SUBSQUID_URL:-https://v2.archive.subsquid.io/network/etherlink-mainnet}
+      - VAULT_ADDRESS=0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d
+      - GEMINI_API_KEY=${GOOGLE_API_KEY:-}
+      - STRATEGIST_PRIVATE_KEY=${STRATEGIST_PRIVATE_KEY:-}
 
 volumes:
   db_data:
