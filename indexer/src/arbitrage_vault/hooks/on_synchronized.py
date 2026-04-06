@@ -11,8 +11,13 @@ from typing import ClassVar
 from arbitrage_vault.agent.gemini_soul import GeminiSoul
 from arbitrage_vault.agent.strategy import ArbitrageHeuristics
 from arbitrage_vault.models import AgentDecision
+from dotenv import load_dotenv
+from eth_abi import encode
 from eth_account import Account
 from web3 import Web3
+
+# Load environment variables from .env file
+load_dotenv()
 
 if TYPE_CHECKING:
     from dipdup.context import HookContext
@@ -28,12 +33,16 @@ class AgentExecutor:
     _semaphore: ClassVar[asyncio.Semaphore] = asyncio.Semaphore(1)
 
     DEX_TYPE_MAP: ClassVar[dict[str, int]] = {
-        'uniswap v2': 0,
         'uniswap v3': 1,
-        'camelot v3': 1,
-        'pancakeswap v3': 1,
+        'oku-trade-etherlink': 1,
         'curve': 2,
+        'curve-etherlink': 2,
         'universal router': 3,
+    }
+
+    # Official Router addresses for Etherlink Mainnet
+    DEX_ROUTER_MAP: ClassVar[dict[str, str]] = {
+        'oku-trade-etherlink': os.getenv('OKU_ROUTER', '0x9db70E29712Cc8Af10c2B597BaDA6784544FF407'),  # Unified V3/UR
     }
 
     def __init__(self, rpc_url: str, private_key: str):
@@ -84,7 +93,6 @@ class AgentExecutor:
                 if g_verdict:
                     decision.gemini_verdict = g_verdict['action']
 
-
                 # 4. Decision logic (Math wins OR AI approves)
                 if decision.heuristics_verdict == 'APPROVE' or (g_verdict and g_verdict['action'] == 'APPROVE'):
                     logger.info('🚀 Executing decision %s', decision_id)
@@ -128,22 +136,31 @@ class AgentExecutor:
         t1 = self.w3.to_checksum_address(buy_pool['token1']['address'])
         token_x = t1 if t0.lower() == vault_asset.lower() else t0
 
-        steps = [
-            {
-                'dex': self.w3.to_checksum_address(buy_pool['address']),
-                'dexType': self.DEX_TYPE_MAP.get(buy_pool.get('dex_name', '').lower(), 1),  # Default to V3 if unknown
-                'tokenIn': vault_asset,
-                'tokenOut': token_x,
-                'data': b'',  # Use default pathing in contract
-            },
-            {
-                'dex': self.w3.to_checksum_address(sell_pool['address']),
-                'dexType': self.DEX_TYPE_MAP.get(sell_pool.get('dex_name', '').lower(), 1),
-                'tokenIn': token_x,
-                'tokenOut': vault_asset,
-                'data': b'',
-            },
-        ]
+        steps = []
+        for pool in [buy_pool, sell_pool]:
+            d_name = pool.get('dex_name', '').lower()
+            d_type = self.DEX_TYPE_MAP.get(d_name, 1)  # Default to V3
+
+            # Resolve Router Address (fallback to Pool for Curve/etc)
+            dex_addr = self.DEX_ROUTER_MAP.get(d_name, pool['address'])
+
+            # Encode data for V3 (Fee + PriceLimit)
+            dex_data = b''
+            if d_type == 1:
+                # GeckoTerminal fee is in pct (e.g. 0.3)
+                # UniV3 fee is in hundredths of bp (e.g. 3000)
+                fee_val = int(float(pool.get('fee', 0.3)) * 10000)
+                dex_data = encode(['uint24', 'uint160'], [fee_val, 0])
+
+            steps.append(
+                {
+                    'dex': self.w3.to_checksum_address(dex_addr),
+                    'dexType': d_type,
+                    'tokenIn': vault_asset if len(steps) == 0 else token_x,
+                    'tokenOut': token_x if len(steps) == 0 else vault_asset,
+                    'data': dex_data,
+                }
+            )
 
         # 2. Params
         amount_in = 10**18  # 1 unit default for testing or use a percentage of vault balance
@@ -168,11 +185,22 @@ class AgentExecutor:
         # High-performance: Add 10% premium to gas to ensure inclusion
         fast_gas_price = int(gas_price * 1.1)
 
+        # 3.2 Dynamic Gas Estimation
+        try:
+            gas_estimate = vault_contract.functions.executeMultiHop(steps, amount_in, min_profit).estimate_gas(
+                {'from': self.account.address}
+            )
+            gas_limit = int(gas_estimate * 1.2)  # 20% safety margin
+            logger.info('⛽ Estimated gas: %d (Limit: %d)', gas_estimate, gas_limit)
+        except Exception as e:
+            logger.warning('⚠️ Gas estimation failed: %s. Falling back to 4,000,000.', e)
+            gas_limit = 4_000_000
+
         tx = vault_contract.functions.executeMultiHop(steps, amount_in, min_profit).build_transaction(
             {
                 'from': self.account.address,
                 'nonce': nonce,
-                'gas': 1_200_000,  # Conservative estimate for multi-hop
+                'gas': gas_limit,
                 'gasPrice': fast_gas_price,
                 'chainId': 42793,
             }

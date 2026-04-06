@@ -1,6 +1,9 @@
 import asyncio
+import json
 import logging
 import os
+import time
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -17,6 +20,10 @@ logger = logging.getLogger(__name__)
 GECKO_API_BASE = 'https://api.geckoterminal.com/api/v2'
 ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 DEFAULT_STRATEGIST = '0x0000000000000000000000000000000000000000'
+
+# Cache for pool discovery to avoid rate limits
+POOLS_CACHE_FILE = Path(__file__).parent / 'etherlink_pools.json'
+POOLS_CACHE_TTL = 300  # 5 minutes
 
 
 def _get_w3() -> Web3:
@@ -157,35 +164,65 @@ async def fetch_pool_metadata(pool_address: str) -> dict[str, Any]:
     return res
 
 
-async def get_xtz_price() -> float:
+async def get_price(token_address: str) -> float:
     """
-    Fetch current XTZ price in USD via GeckoTerminal.
-    Uses WXTZ (0xc9b53ab2679f573e480d01e0f49e2d7838523eab) as a proxy for XTZ.
+    Fetch current USD price of any token on Etherlink via GeckoTerminal.
+    Returns 0.0 if the price cannot be fetched.
     """
-    wxtz_address = '0xc9b53ab2679f573e480d01e0f49e2d7838523eab'
-    url = f'{GECKO_API_BASE}/simple/networks/etherlink/token_price/{wxtz_address}'
+    url = f'{GECKO_API_BASE}/simple/networks/etherlink/token_price/{token_address.lower()}'
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, timeout=10.0, headers={'Accept': 'application/json;version=20230302'})
             if response.status_code == 200:
                 data = response.json()
                 prices = data.get('data', {}).get('attributes', {}).get('token_prices', {})
-                price = prices.get(wxtz_address)
+                price = prices.get(token_address.lower())
                 if price:
                     return float(price)
-
-            # Fallback: discover trending pools and find WXTZ
-            pools = await discover_pools(max_pages=1)
-            for pool in pools:
-                if pool['token0']['address'].lower() == wxtz_address:
-                    return float(pool['token0'].get('price_usd') or 0)
-                if pool['token1']['address'].lower() == wxtz_address:
-                    return float(pool['token1'].get('price_usd') or 0)
-
-            return 0.34  # Current sane default if all else fails
         except Exception as e:
-            logger.error('Error fetching XTZ price: %s', e)
-            return 0.34
+            logger.error('Error fetching price for %s: %s', token_address, e)
+    return 0.0
+
+
+async def get_prices(token_addresses: list[str]) -> dict[str, float]:
+    """
+    Batch fetch USD prices for multiple tokens on Etherlink via GeckoTerminal.
+    GeckoTerminal supports comma-separated addresses in the token_price endpoint.
+    Returns a dict of {lowercase_address: price_usd}.
+    """
+    if not token_addresses:
+        return {}
+    # Batch in groups of 30 to stay well within URL length limits
+    results: dict[str, float] = {}
+    async with httpx.AsyncClient() as client:
+        chunk_size = 30
+        for i in range(0, len(token_addresses), chunk_size):
+            chunk = token_addresses[i : i + chunk_size]
+            addresses_str = ','.join(addr.lower() for addr in chunk)
+            url = f'{GECKO_API_BASE}/simple/networks/etherlink/token_price/{addresses_str}'
+            try:
+                response = await client.get(url, timeout=15.0, headers={'Accept': 'application/json;version=20230302'})
+                if response.status_code == 200:
+                    data = response.json()
+                    prices = data.get('data', {}).get('attributes', {}).get('token_prices', {})
+                    for addr, price in prices.items():
+                        if price:
+                            results[addr.lower()] = float(price)
+            except Exception as e:
+                logger.error('Error batch fetching prices for chunk: %s', e)
+            if i + chunk_size < len(token_addresses):
+                await asyncio.sleep(0.5)  # brief pause between chunks
+    return results
+
+
+async def get_xtz_price() -> float:
+    """
+    Fetch current XTZ/WXTZ price in USD.
+    Thin wrapper around get_price for backwards compatibility.
+    """
+    wxtz_address = '0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab'
+    price = await get_price(wxtz_address)
+    return price if price > 0 else 0.34
 
 
 async def get_gas_price(rpc_url: str) -> int:
@@ -200,57 +237,135 @@ async def get_gas_price(rpc_url: str) -> int:
         return 1000000000  # 1 gwei fallback
 
 
-async def discover_pools(network_id: str = 'etherlink', max_pages: int = 3) -> list[dict[str, Any]]:
+async def discover_pools(
+    network_id: str = 'etherlink', max_pages: int = 3, force_refresh: bool = False
+) -> list[dict[str, Any]]:
     """
     Fetch trending pools from GeckoTerminal API for the given network.
+    Caches results locally to avoid rate limits.
     """
+    # 1. Try Cache First (unless forcing refresh)
+    if POOLS_CACHE_FILE.exists() and not force_refresh:
+        age = time.time() - POOLS_CACHE_FILE.stat().st_mtime
+        if age < POOLS_CACHE_TTL:
+            try:
+                if POOLS_CACHE_FILE.stat().st_size == 0:
+                    # Treat empty file as no cache
+                    raise json.JSONDecodeError('Empty file', '', 0)
+                with POOLS_CACHE_FILE.open() as f:
+                    cached_pools = json.load(f)
+                    logger.info('📡 Using cached pools (%d pools, age: %ds)', len(cached_pools), int(age))
+                    return cached_pools
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning('Cache invalid or empty, fetching fresh: %s', e)
+
+    # 2. API Fetch
     all_pools = []
     async with httpx.AsyncClient() as client:
         for page in range(1, max_pages + 1):
+            if page > 1:
+                await asyncio.sleep(1.5)  # Be nice to GeckoTerminal
+
             url = f'{GECKO_API_BASE}/networks/{network_id}/pools?page={page}&include=base_token,quote_token'
             try:
-                response = await client.get(url, timeout=10.0, headers={'Accept': 'application/json;version=20230302'})
+                response = await client.get(url, timeout=15.0, headers={'Accept': 'application/json;version=20230302'})
+
+                if response.status_code == 429:
+                    logger.warning('⚠️ Rate limited (429) on page %d. Stopping discovery.', page)
+                    break
+
                 response.raise_for_status()
                 data = response.json()
                 pools = data.get('data', [])
                 if not pools:
+                    logger.info('No more pools found at page %d', page)
                     break
 
                 included = data.get('included', [])
                 token_map = {item['id']: item['attributes'] for item in included if item['type'] == 'token'}
 
+                page_count = 0
                 for pool in pools:
                     try:
+                        attributes = pool.get('attributes', {})
                         relationships = pool.get('relationships', {})
-                        base_token_id = relationships.get('base_token', {}).get('data', {}).get('id')
-                        quote_token_id = relationships.get('quote_token', {}).get('data', {}).get('id')
-                        dex_id = relationships.get('dex', {}).get('data', {}).get('id', 'unknown')
+                        dex_name = relationships.get('dex', {}).get('data', {}).get('id', '').lower()
 
-                        token0 = token_map.get(base_token_id)
-                        token1 = token_map.get(quote_token_id)
-
-                        if not token0 or not token1:
+                        if dex_name not in ['oku-trade-etherlink', 'curve-etherlink']:
                             continue
 
-                        attributes = pool.get('attributes', {})
+                        base_token_id = relationships.get('base_token', {}).get('data', {}).get('id')
+                        quote_token_id = relationships.get('quote_token', {}).get('data', {}).get('id')
+
+                        if not base_token_id or not quote_token_id:
+                            continue
+
                         all_pools.append(
                             {
-                                'address': attributes.get('address'),
-                                'dex_name': dex_id.replace(f'{network_id}_', '').replace('_', ' '),
-                                'token0': token0,
-                                'token1': token1,
+                                'address': Web3.to_checksum_address(pool['attributes']['address']),
+                                'dex_name': dex_name,
+                                'token0': token_map[base_token_id],
+                                'token1': token_map[quote_token_id],
                                 'price0': float(attributes.get('base_token_price_usd') or 0)
                                 / float(attributes.get('quote_token_price_usd') or 1),
                                 'tvl_usd': float(attributes.get('reserve_in_usd') or 0),
+                                'fee': float(attributes.get('swap_fee_pct') or 0.3),
                             }
                         )
-                    except Exception:
+                        page_count += 1
+                    except Exception as e:
+                        logger.error('Failed to parse pool: %s', e)
                         continue
 
-                logger.info('Page %s: found %s pools', page, len(pools))
+                logger.info('Page %s: imported %s Oku/Curve pools', page, page_count)
             except Exception as e:
                 logger.error('Error discovering pools at page %s: %s', page, e)
-                break
+                continue
+
+    # 3. Enrich tokens with live USD prices
+    if all_pools:
+        unique_tokens: list[str] = list(
+            {
+                addr
+                for pool in all_pools
+                for addr in [pool['token0']['address'].lower(), pool['token1']['address'].lower()]
+            }
+        )
+        logger.info('💰 Fetching live USD prices for %d unique tokens...', len(unique_tokens))
+        token_prices = await get_prices(unique_tokens)
+        enriched = 0
+        for pool in all_pools:
+            t0_addr = pool['token0']['address'].lower()
+            t1_addr = pool['token1']['address'].lower()
+            p0 = token_prices.get(t0_addr, 0.0)
+            p1 = token_prices.get(t1_addr, 0.0)
+            pool['token0']['price_usd'] = p0
+            pool['token1']['price_usd'] = p1
+            if p0 > 0:
+                enriched += 1
+            if p1 > 0:
+                enriched += 1
+        logger.info('💰 Enriched %d token slots with price_usd (total %d tokens)', enriched, len(unique_tokens))
+
+    # 4. Update Cache & Return
+    if all_pools:
+        try:
+            with POOLS_CACHE_FILE.open('w') as f:
+                json.dump(all_pools, f, indent=2)
+                logger.info('💾 Cache updated: %d pools saved to %s', len(all_pools), POOLS_CACHE_FILE.name)
+            return all_pools
+        except Exception as e:
+            logger.error('Failed to save pools cache: %s', e)
+
+    # 4. Final Fallback to Stale Cache
+    if POOLS_CACHE_FILE.exists():
+        try:
+            with POOLS_CACHE_FILE.open() as f:
+                cached_pools = json.load(f)
+                logger.info('📡 Falling back to stale cache (%d pools)', len(cached_pools))
+                return cached_pools
+        except Exception:
+            pass
 
     return all_pools
 

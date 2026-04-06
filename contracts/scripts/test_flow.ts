@@ -25,7 +25,7 @@ async function main() {
     console.log(`🚀 Executing flow with account: ${deployer.address}`);
 
     // Load setup data
-    const poolsPath = path.join(__dirname, "../../etherlink_pools.json");
+    const poolsPath = path.join(__dirname, "../../indexer/src/arbitrage_vault/etherlink_pools.json");
     const pools = JSON.parse(fs.readFileSync(poolsPath, "utf8"));
 
     const ETHERLINK_WXTZ = process.env.WXTZ_ADDRESS?.toLowerCase();
@@ -52,7 +52,18 @@ async function main() {
         // Whitelist all pools from the JSON file
         for (const pool of pools) {
             await (await vault.setWhitelistedDex(pool.address, true)).wait();
-            console.log(`✅ Whitelisted ${pool.dex} pool (${pool.pair}): ${pool.address}`);
+            console.log(`✅ Whitelisted ${pool.dex_name} pool (${pool.token0.symbol}/${pool.token1.symbol}): ${pool.address}`);
+        }
+
+        // Whitelist Key Routers
+        const routers = [
+            OKU_ROUTER,
+        ];
+        for (const router of routers) {
+            if (router) {
+                await (await vault.setWhitelistedDex(router, true)).wait();
+                console.log(`✅ Whitelisted Router: ${router}`);
+            }
         }
 
         console.log("✅ Whitelisting completed.");

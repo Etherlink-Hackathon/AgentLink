@@ -34,12 +34,12 @@ class ArbitrageHeuristics:
             }
 
         # 2. Spread Quality Check
-        # GeckoTerminal uses 0.0001 for 0.01%. 
+        # GeckoTerminal uses 0.0001 for 0.01%.
         if spread_pct < 0.0001:  # 0.01%
-            return {'verdict': 'REJECT', 'reason': f'Spread {spread_pct*100:.4f}% too tight', 'confidence': 0.9}
+            return {'verdict': 'REJECT', 'reason': f'Spread {spread_pct * 100:.4f}% too tight', 'confidence': 0.9}
 
-        # 3. Path Sanitation
-        if not opportunity.get('buy_pool') or not opportunity.get('sell_pool'):
+        # 3. Path Sanitation (for 2-leg direct routes only)
+        if not opportunity.get('route') and (not opportunity.get('buy_pool') or not opportunity.get('sell_pool')):
             return {'verdict': 'REJECT', 'reason': 'Incomplete path data', 'confidence': 1.0}
 
         return {
@@ -48,4 +48,3 @@ class ArbitrageHeuristics:
             'confidence': 1.0,
             'params': {'max_gas_premium_pct': 20, 'slippage_bps': slippage},
         }
-

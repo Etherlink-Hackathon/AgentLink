@@ -2,13 +2,12 @@ import logging
 import os
 from typing import Any
 
-from arbitrage_vault.agent.arbitrage import detect_arbitrage
+from arbitrage_vault.agent.arbitrage import detect_multi_hop_arbitrage
 from arbitrage_vault.agent.arbitrage import evaluate_profitability
 from arbitrage_vault.models import Agent
 from arbitrage_vault.models import AgentDecision
 from arbitrage_vault.models import Vault
 from arbitrage_vault.utils import discover_pools
-from arbitrage_vault.utils import extract_prices
 from arbitrage_vault.utils import get_gas_price
 from arbitrage_vault.utils import get_xtz_price
 from dipdup.context import HookContext
@@ -78,8 +77,7 @@ async def run_arbitrage(
             logger.warning('No allowed pools found for scanning.')
             return
 
-        price_map = extract_prices(pools)
-        opportunities = detect_arbitrage(price_map)
+        opportunities = detect_multi_hop_arbitrage(pools)
     else:
         logger.info('Using %d externally provided opportunities', len(opportunities))
 
@@ -95,16 +93,22 @@ async def run_arbitrage(
 
     for ev in evaluations:
         opp = ev['opportunity']
-        
+
+        # Multi-hop SCOUT: log but don't execute or save
+        if ev['decision'] == 'SCOUT':
+            logger.info(
+                '🔭 SCOUT route (%d hops, +%.2f%%): %s',
+                opp.get('hops', '?'),
+                opp.get('return_pct', 0) * 100,
+                opp['pair_id'],
+            )
+            continue
+
         # Combine base profitability with strategic heuristics
         h_verdict = heuristics.evaluate(
-            {
-                **opp, 
-                'net_profit_usd': ev['net_profit_usd']
-            }, 
-            strategy_config=agent.strategy_config
+            {**opp, 'net_profit_usd': ev['net_profit_usd']}, strategy_config=agent.strategy_config
         )
-        
+
         heuristics_passed = ev['decision'] == 'EXECUTE' and h_verdict['verdict'] == 'APPROVE'
         status = 'EXECUTE' if heuristics_passed else 'PENDING'
 
@@ -115,7 +119,6 @@ async def run_arbitrage(
                 '🤖 Heuristics passed for %s (+%.2f) - Requesting AI Review...', opp['pair_id'], ev['net_profit_usd']
             )
             ai_review = await ai_soul.review(opp, strategy_config=agent.strategy_config)
-
 
             if ai_review:
                 action = ai_review.get('action', 'REJECT')
@@ -144,9 +147,11 @@ async def run_arbitrage(
             opportunity_details={
                 'pair_id': opp['pair_id'],
                 'net_profit_usd': float(ev['net_profit_usd']),
-                'spread_pct': float(opp['spread_pct']),
-                'buy_pool': opp['buy_pool'],
-                'sell_pool': opp['sell_pool'],
+                'return_pct': float(opp.get('return_pct', opp.get('spread_pct', 0))),
+                'hops': opp.get('hops', 2),
+                'is_direct': opp.get('is_direct', True),
+                'buy_pool': opp.get('buy_pool'),
+                'sell_pool': opp.get('sell_pool'),
                 'xtz_price': xtz_price,
                 'gas_price_gwei': gas_price / 10**9,
                 'ai_params': ai_review.get('params') if ai_review else None,

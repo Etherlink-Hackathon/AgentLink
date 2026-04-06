@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 from arbitrage_vault.hooks.run_arbitrage import run_arbitrage
-from arbitrage_vault.utils import discover_pools, extract_prices, get_xtz_price, get_gas_price
-from arbitrage_vault.agent.arbitrage import detect_arbitrage, evaluate_profitability
+from arbitrage_vault.utils import discover_pools, get_xtz_price, get_gas_price
+from arbitrage_vault.agent.arbitrage import detect_multi_hop_arbitrage, evaluate_profitability
 from arbitrage_vault.models import AgentDecision
 import dipdup.models
 
@@ -61,41 +61,59 @@ async def run_standalone():
 
     # 3. Scouting Phase (from scout_opportunities.py)
     print("\n" + "🔎 " + "="*76)
-    print("SCOUTING FOR OPPORTUNITIES (5 Pages)")
+    print("SCOUTING FOR OPPORTUNITIES (15 Pages)")
     print("="*80)
     
     rpc_url = os.getenv('RPC_URL', 'https://node.mainnet.etherlink.com')
     xtz_price = await get_xtz_price()
     gas_price = await get_gas_price(rpc_url)
     
-    pools = await discover_pools(max_pages=5)
+    pools = await discover_pools(max_pages=15, force_refresh=True)
     if not pools:
         print("No pools found.")
         return
-        
-    price_map = extract_prices(pools)
-    opportunities = detect_arbitrage(price_map)
-    
+
+    opportunities = detect_multi_hop_arbitrage(pools)
+
     if not opportunities:
-        print("No arbitrage spreads detected.")
+        print("No arbitrage routes detected.")
         return
 
     # Preliminary evaluation for the table
     evals = await evaluate_profitability(
-        opportunities, 
-        xtz_price_usd=xtz_price, 
+        opportunities,
+        xtz_price_usd=xtz_price,
         gas_price_wei=gas_price,
         min_profit_margin=0.001
     )
 
-    print(f'{"PAIR":<20} | {"SPREAD %":<10} | {"GROSS $":<10} | {"NET $":<10} | {"DECISION"}')
-    print('-' * 80)
+    print(f'{"ROUTE":<45} | {"HOPS":>4} | {"TYPE":<6} | {"SPREAD %":>8} | {"RETURN %":>8} | {"INPUT $":>8} | {"OUTPUT $":>9} | {"GAS $":>7} | {"NET $":>9} | {"FEES%":>5} | DECISION')
+    print('-' * 175)
     for ev in evals:
         opp = ev['opportunity']
-        color = '\033[92m' if ev['decision'] == 'EXECUTE' else ''
-        reset = '\033[0m' if color else ''
-        print(f'{color}{opp["pair_id"]:<20} | {opp["spread_pct"]*100:>8.2f}% | {opp["estimated_gross_profit"]:>10.4f} | {ev["net_profit_usd"]:>10.4f} | {ev["decision"]}{reset}')
-    print("="*80 + "\n")
+        decision = ev['decision']
+        route_type = 'DIRECT' if opp.get('is_direct') else 'SCOUT'
+        if decision == 'EXECUTE':
+            color = '\033[92m'   # green
+        elif decision == 'SCOUT':
+            color = '\033[94m'   # blue
+        elif ev['net_profit_usd'] < 0:
+            color = '\033[91m'   # red
+        else:
+            color = '\033[93m'   # yellow (skip)
+        reset = '\033[0m'
+        route_label = opp['pair_id'][:43]
+        print(
+            f"{color}{route_label:<45} | {opp.get('hops', 2):>4} | {route_type:<6} | "
+            f"{opp.get('spread_pct', 0)*100:>7.3f}% | {opp.get('return_pct', 0)*100:>7.3f}% | "
+            f"{opp.get('input_amount_usd', 0):>8.2f} | {opp.get('output_amount_usd', 0):>9.2f} | "
+            f"{ev.get('gas_cost_usd', 0):>7.4f} | {ev['net_profit_usd']:>9.4f} | "
+            f"{opp.get('total_fee_pct', 0):>5.2f}% | {decision}{reset}"
+        )
+    print("="*175 + "\n")
+
+    # Only pass direct (2-leg) opportunities to the agent for execution
+    direct_opportunities = [opp for opp in opportunities if opp.get('is_direct')]
 
     # 4. Run the arbitrage hook with discovered opportunities
     ctx = MockHookContext()
@@ -104,7 +122,7 @@ async def run_standalone():
     print(f"Starting agent review for vault {vault_address}...")
     try:
         async with transactions.in_transaction():
-            await run_arbitrage(ctx, vault_address, min_profit_usd=0.01, opportunities=opportunities)
+            await run_arbitrage(ctx, vault_address, min_profit_usd=0.01, opportunities=direct_opportunities)
         print("Agent review cycle completed successfully.")
 
         # 5. Execution Phase (NEW)

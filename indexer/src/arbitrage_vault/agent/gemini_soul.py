@@ -43,7 +43,6 @@ SCHEMA:
 """
 
 
-
 class GeminiSoul:
     # Ranked model list for fallbacks exactly as requested
     FALLBACK_MODELS: ClassVar[list[str]] = [
@@ -105,7 +104,6 @@ class GeminiSoul:
             max_slippage_bps=max_slippage_bps,
             max_slippage_pct=max_slippage_pct,
         )
-
 
         for _attempt in range(len(self.FALLBACK_MODELS) * 2):
             try:
