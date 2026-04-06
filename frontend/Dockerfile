@@ -29,6 +29,9 @@ RUN cd frontend && npm run build
 # Production stage: Serve with Nginx
 FROM nginx:stable-alpine as production-stage
 
+# Copy the custom nginx configuration
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
 # Copy the build output from the correct directory
 COPY --from=build-stage /app/frontend/dist /usr/share/nginx/html
 
