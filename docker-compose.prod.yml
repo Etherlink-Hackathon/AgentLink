@@ -107,7 +107,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-huydo}
       - ADMIN_SECRET=${ADMIN_SECRET:-huydo2105}
       - ETHERSCAN_URL=${ETHERSCAN_URL:-https://api.etherscan.io/v2/api?chainId=}
-      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-XYPSYD24WG49NSWHWCF9VE9HNKF21Z2KM2}
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-}
       - RPC_URL=${RPC_URL:-https://node.mainnet.etherlink.com}
       - SUBSQUID_URL=${SUBSQUID_URL:-https://v2.archive.subsquid.io/network/etherlink-mainnet}
       - VAULT_ADDRESS=0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d
