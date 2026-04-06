@@ -9,7 +9,7 @@ RUN cd frontend && npm install --legacy-peer-deps
 
 # Copy frontend source and docs from root
 COPY frontend/ ./frontend/
-COPY docs/ ./docs/
+COPY docs/ ./frontend/docs/
 
 # Build arguments for Vite
 ARG VITE_GRAPHQL_URL

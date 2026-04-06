@@ -37,6 +37,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     environment:
       - VIRTUAL_HOST=agentlink.eastus.cloudapp.azure.com
+      - VIRTUAL_PORT=80
       - LETSENCRYPT_HOST=agentlink.eastus.cloudapp.azure.com
     depends_on:
       - frontend
