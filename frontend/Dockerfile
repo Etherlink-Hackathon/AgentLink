@@ -4,8 +4,8 @@ WORKDIR /app
 
 # Install dependencies separately to leverage Docker layer caching
 COPY package*.json ./
-# Using npm install; adjust if using yarn (yarn.lock exists)
-RUN npm install
+# Using --legacy-peer-deps to handle vite-plugin-node-stdlib-browser conflict
+RUN npm install --legacy-peer-deps
 
 # Copy source and build
 COPY . .
