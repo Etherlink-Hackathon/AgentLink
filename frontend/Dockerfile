@@ -2,16 +2,14 @@
 FROM node:18-alpine as build-stage
 WORKDIR /app
 
-# Install dependencies separately to leverage Docker layer caching
-# Build context is the project root (.), so frontend/ is a subdirectory
-COPY frontend/package*.json ./frontend/
+# Copy the entire workspace to mirror the exact structure (frontend, docs, etc.)
+# This ensures that relative paths like '../../../docs' in sanity.js resolve correctly.
+COPY . .
+
+# Install dependencies (using --legacy-peer-deps for vite-plugin-node-stdlib-browser conflict)
 RUN cd frontend && npm install --legacy-peer-deps
 
-# Copy frontend source and docs from root
-COPY frontend/ ./frontend/
-COPY docs/ ./frontend/docs/
-
-# Build arguments for Vite
+# Build arguments for Vite (Must be provided before 'npm run build')
 ARG VITE_GRAPHQL_URL
 ENV VITE_GRAPHQL_URL=$VITE_GRAPHQL_URL
 ARG VITE_NETWORK_TYPE=mainnet
@@ -31,7 +29,7 @@ RUN cd frontend && npm run build
 # Production stage: Serve with Nginx
 FROM nginx:stable-alpine as production-stage
 
-# Copy the build output from the correct nested directory
+# Copy the build output from the correct directory
 COPY --from=build-stage /app/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80
