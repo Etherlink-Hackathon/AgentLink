@@ -1,5 +1,5 @@
 import { flameWager } from "@/services/sdk"
-import { VAULTS_QUERY, VAULT_BY_ADDRESS_QUERY } from "./graphql/queries"
+import { VAULTS_QUERY, VAULT_BY_ADDRESS_QUERY, VAULT_TVL_QUERY } from "./graphql/queries"
 
 /**
  * Fetch all active vaults with their snapshots
@@ -64,8 +64,23 @@ export const fetchVaultById = async (address) => {
         if (!vault) throw new Error("Vault not found")
 
         const latestSnapshot = vault.snapshots[0] || {}
-        const totalAssets = parseFloat(latestSnapshot.totalAssets || 0)
-        const totalSupply = parseFloat(latestSnapshot.totalSupply || 0)
+        let totalAssets = parseFloat(latestSnapshot.totalAssets || 0)
+        let totalSupply = parseFloat(latestSnapshot.totalSupply || 0)
+        let apy = latestSnapshot.apy || 0
+        let revenue = latestSnapshot.yield1d || 0
+
+        // try to fetch more accurate tvl data
+        try {
+            const tvlData = await fetchVaultTvl(address)
+            if (tvlData) {
+                totalAssets = tvlData.tvl
+                totalSupply = tvlData.totalSupply
+                apy = tvlData.apy
+                revenue = tvlData.revenue
+            }
+        } catch (err) {
+            console.warn("Failed to override snapshot with latest tvl view:", err)
+        }
 
         return {
             id: vault.address,
@@ -76,8 +91,8 @@ export const fetchVaultById = async (address) => {
             status: "active",
             tvl: totalAssets,
             sharePrice: totalSupply > 0 ? totalAssets / totalSupply : 1.0,
-            apy: latestSnapshot.apy || 0,
-            revenue: latestSnapshot.yield1d || 0,
+            apy: apy,
+            revenue: revenue,
             tags: ["High Yield", "Etherlink", "Arbitrage"],
             description: `This strategy exploits price discrepancies for the Etherlink Dex Pools.`,
             yield_history: vault.yields || [],
@@ -87,6 +102,36 @@ export const fetchVaultById = async (address) => {
         }
     } catch (error) {
         console.error(`Failed to fetch vault ${address} via GraphQL:`, error)
+        return null
+    }
+}
+/**
+ * Fetch the latest TVL and APY for a specific vault from the view
+ */
+export const fetchVaultTvl = async (address) => {
+    try {
+        if (!flameWager.gql) {
+            throw new Error("GraphQL client not initialized")
+        }
+
+        const result = await flameWager.gql.query(VAULT_TVL_QUERY, { address }).toPromise()
+
+        if (result.error) {
+            throw result.error
+        }
+
+        const data = result.data.vaultTvlLatest?.[0]
+        if (!data) return null
+
+        return {
+            tvl: parseFloat(data.currentTvl || 0),
+            totalSupply: parseFloat(data.totalSupply || 0),
+            apy: parseFloat(data.apy || 0),
+            revenue: parseFloat(data.yield1d || 0),
+            lastUpdated: data.lastUpdated
+        }
+    } catch (error) {
+        console.error(`Failed to fetch vault TVL for ${address}:`, error)
         return null
     }
 }

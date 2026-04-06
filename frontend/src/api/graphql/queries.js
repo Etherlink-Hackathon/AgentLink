@@ -256,3 +256,18 @@ export const USER_STATISTICS_QUERY = `
     }
   }
 `
+/**
+ * Fetch the latest TVL and APY for a specific vault
+ */
+export const VAULT_TVL_QUERY = `
+  query GetVaultTvl($address: String!) {
+    vaultTvlLatest(where: { vaultAddress: { _eq: $address } }) {
+      apy
+      currentTvl
+      lastUpdated
+      totalSupply
+      vaultAddress
+      yield1d
+    }
+  }
+`

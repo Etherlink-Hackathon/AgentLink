@@ -24,7 +24,7 @@ import ConfigModal from "../../local/modals/shared/ConfigModal.vue"
 import { 
   subscribeToAgentDecisions, 
   subscribeToAgentExecutions,
-  subscribeToVault
+  subscribeToVaultTvl
 } from "@/api/graphql/subscriptions"
 
 const notificationsStore = useNotificationsStore()
@@ -54,13 +54,6 @@ const breadcrumbs = computed(() => [
 	{ name: "Vaults", path: "/vaults" },
 	{ name: vault.value ? vault.value.name : "Loading...", path: `/vaults/${props.id}` },
 ])
-
-const mockPosition = computed(() => ({
-	tvl: 3.25,
-	returning: 3.37,
-	potential: 0.12,
-	symbol: vault.value?.token1?.symbol || activeChainConfig.nativeCurrency.symbol
-}))
 
 const fetchBackendData = async () => {
 	try {
@@ -149,18 +142,17 @@ onMounted(async () => {
       fetchAgentTransactions().then(txs => agentTransactions.value = txs)
     }))
 
-    subscriptions.push(subscribeToVault(props.id, (updatedVault) => {
-      if (updatedVault) {
-        const latestSnapshot = updatedVault.snapshots[0] || {}
-        const totalAssets = parseFloat(latestSnapshot.totalAssets || 0)
-        const totalSupply = parseFloat(latestSnapshot.totalSupply || 0)
+    subscriptions.push(subscribeToVaultTvl(props.id, (tvlData) => {
+      if (tvlData) {
+        const totalAssets = parseFloat(tvlData.currentTvl || 0)
+        const totalSupply = parseFloat(tvlData.totalSupply || 0)
 
         vault.value = {
           ...vault.value,
           tvl: totalAssets,
           sharePrice: totalSupply > 0 ? totalAssets / totalSupply : 1.0,
-          apy: latestSnapshot.apy || 0,
-          revenue: latestSnapshot.yield1d || 0
+          apy: parseFloat(tvlData.apy || 0),
+          revenue: parseFloat(tvlData.yield1d || 0)
         }
       }
     }))
@@ -274,7 +266,7 @@ onUnmounted(() => {
 			:show="showDepositModal" 
 			:initialAmount="selectedAmount"
 			:selectedPool="{ address: vault.address, name: vault.name, entryLockPeriod: 3600 }"
-			:state="{ totalLiquidity: vault.tvl || 0, sharePrice: vault.sharePrice || 1.0 }"
+			:state="{ totalLiquidity: vault.tvl , sharePrice: vault.sharePrice}"
 			:apy="(vault.apy || 0) / 100"
 			@onClose="showDepositModal = false"
 		/>

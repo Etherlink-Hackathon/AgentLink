@@ -3,7 +3,8 @@ import { flameWager } from "@/services/sdk"
 import { 
   AGENT_DECISIONS_QUERY, 
   AGENT_EXECUTIONS_QUERY, 
-  VAULT_BY_ADDRESS_QUERY 
+  VAULT_BY_ADDRESS_QUERY,
+  VAULT_TVL_QUERY
 } from "./queries"
 
 /**
@@ -71,5 +72,16 @@ export const subscribeToVault = (address, onUpdate) => {
     { address },
     onUpdate,
     (data) => data.vault
+  )
+}
+/**
+ * Subscribe to real-time vault TVL updates
+ */
+export const subscribeToVaultTvl = (address, onUpdate) => {
+  return handleSubscription(
+    VAULT_TVL_QUERY,
+    { address },
+    onUpdate,
+    (data) => data.vaultTvlLatest?.[0]
   )
 }
