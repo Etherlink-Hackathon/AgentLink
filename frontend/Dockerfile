@@ -3,33 +3,36 @@ FROM node:18-alpine as build-stage
 WORKDIR /app
 
 # Install dependencies separately to leverage Docker layer caching
-COPY package*.json ./
-# Using --legacy-peer-deps to handle vite-plugin-node-stdlib-browser conflict
-RUN npm install --legacy-peer-deps
+# Build context is the project root (.), so frontend/ is a subdirectory
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm install --legacy-peer-deps
 
-# Copy source and build
-COPY . .
+# Copy frontend source and docs from root
+COPY frontend/ ./frontend/
+COPY docs/ ./docs/
 
-# Build-time argument for GraphQL URL
-# This will be injected into the static files during 'vite build'
+# Build arguments for Vite
 ARG VITE_GRAPHQL_URL
 ENV VITE_GRAPHQL_URL=$VITE_GRAPHQL_URL
-
-# Network type (mainnet/testnet)
 ARG VITE_NETWORK_TYPE=mainnet
 ENV VITE_NETWORK_TYPE=$VITE_NETWORK_TYPE
+ARG VITE_NODE_ENV=production
+ENV VITE_NODE_ENV=$VITE_NODE_ENV
+ARG VITE_STATS=TRUE
+ENV VITE_STATS=$VITE_STATS
+ARG VITE_AMPLITUDE
+ENV VITE_AMPLITUDE=$VITE_AMPLITUDE
+ARG VITE_VAULT_ADDRESS
+ENV VITE_VAULT_ADDRESS=$VITE_VAULT_ADDRESS
 
-RUN npm run build
+# Build the app inside the frontend folder
+RUN cd frontend && npm run build
 
 # Production stage: Serve with Nginx
 FROM nginx:stable-alpine as production-stage
 
-# Copy the build output to Nginx's default public directory
-COPY --from=build-stage /app/dist /usr/share/nginx/html
-
-# Custom nginx config to handle SPA routing if needed
-# (Optional: If you have complex routing, you might need a custom nginx.conf)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy the build output from the correct nested directory
+COPY --from=build-stage /app/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80
 

@@ -77,7 +77,8 @@ services:
   # --- Frontend ---
   frontend:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: ./frontend/Dockerfile
       args:
         - VITE_GRAPHQL_URL=https://agentlink.eastus.cloudapp.azure.com/v1/graphql
         - VITE_NETWORK_TYPE=mainnet
