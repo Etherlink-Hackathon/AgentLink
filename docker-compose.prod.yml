@@ -90,10 +90,11 @@ services:
     depends_on:
       - hasura
 
-  # --- Indexer ---
+  # --- Core Indexer ---
   indexer:
     build:
       context: ./indexer
+    command: ["-c", "dipdup.yml", "run"]
     depends_on:
       db:
         condition: service_healthy
