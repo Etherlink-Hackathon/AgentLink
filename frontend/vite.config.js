@@ -88,12 +88,6 @@ export default (ctx) => {
 			preferRelative: false,
 			alias: {
 				...aliases,
-				'@safe-window/safe-apps-provider':
-					'@safe-global/safe-apps-provider',
-				'@safe-window/safe-apps-sdk':
-					'@safe-global/safe-apps-sdk',
-				'@safe-window/safe-gateway-typescript-sdk':
-					'@safe-global/safe-gateway-typescript-sdk',
 				"@airgap/beacon-dapp": path.resolve(
 					__dirname,
 					`./node_modules/@airgap/beacon-dapp/dist/${isBuild ? "esm" : "cjs"
