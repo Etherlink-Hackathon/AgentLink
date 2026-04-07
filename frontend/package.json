@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"@rollup/plugin-inject": "^5.0.2",
+		"@safe-global/safe-apps-provider": "^0.17.0",
 		"@tanstack/vue-query": "^5.69.0",
 		"@urql/core": "^6.0.1",
 		"@urql/vue": "^2.0.0",
