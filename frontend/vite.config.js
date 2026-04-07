@@ -32,7 +32,6 @@ export default (ctx) => {
 	return defineConfig({
 		plugins: [
 			vue(),
-			!production &&
 			nodePolyfills({
 				include: [
 					"node_modules/**/*.js",
@@ -67,12 +66,7 @@ export default (ctx) => {
 		],
 		build: {
 			rollupOptions: {
-				external: [
-					'@safe-window/safe-apps-provider',
-					'@safe-window/safe-apps-sdk',
-				],
 				plugins: [
-					// ↓ Needed for build
 					nodePolyfills()
 				]
 			},
@@ -87,7 +81,7 @@ export default (ctx) => {
 		},
 
 		optimizeDeps: {
-			exclude: ['shiki']
+			include: ["shiki"]
 		},
 
 		resolve: {
