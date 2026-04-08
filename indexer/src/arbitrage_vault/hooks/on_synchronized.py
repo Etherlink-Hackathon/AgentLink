@@ -118,37 +118,44 @@ class AgentExecutor:
         vault_address = (await decision.vault).address
         vault_contract = self.w3.eth.contract(address=self.w3.to_checksum_address(vault_address), abi=self.vault_abi)
 
-        # 1. Construct Steps
-        # A standard arbitrage: Asset -> Buy Token X -> Sell for Asset
-        # For simplicity, we assume the vault asset is the base token of the pair (or quote)
+        # 1. Construct Steps for N hops
+        route = opp.get('route')
+        opp.get('is_direct', True)
 
-        buy_pool = opp['buy_pool']
-        sell_pool = opp['sell_pool']
+        if not route:
+            # Fallback for old/legacy 2-hop decisions
+            if not opp.get('buy_pool') or not opp.get('sell_pool'):
+                raise ValueError("Missing 'route' for multi-hop or 'buy_pool/sell_pool' for direct 2-hop")
 
-        # Determine tokens
-        # GeckoTerminal uses standard addresses. We need to be sure which one is 'tokenIn'
-        # For now, we assume a simple 2-hop: Vault Asset -> Token X -> Vault Asset
-        # In a real environment, we'd resolve this from the Vault's .asset() call
-        vault_asset = vault_contract.functions.asset().call()
+            route = [{'pool': opp['buy_pool'], 'direction': 0}, {'pool': opp['sell_pool'], 'direction': 0}]
 
-        # Determine the intermediate token (Token X)
-        t0 = self.w3.to_checksum_address(buy_pool['token0']['address'])
-        t1 = self.w3.to_checksum_address(buy_pool['token1']['address'])
-        token_x = t1 if t0.lower() == vault_asset.lower() else t0
+        vault_contract.functions.asset().call()
 
         steps = []
-        for pool in [buy_pool, sell_pool]:
+        for hop in route:
+            pool = hop.get('pool')
+            if not pool:
+                continue
+            direction = hop.get('direction', 0)
+
             d_name = pool.get('dex_name', '').lower()
-            d_type = self.DEX_TYPE_MAP.get(d_name, 1)  # Default to V3
+            d_type = self.DEX_TYPE_MAP.get(d_name, 1)  # Default to V3 (1)
 
             # Resolve Router Address (fallback to Pool for Curve/etc)
             dex_addr = self.DEX_ROUTER_MAP.get(d_name, pool['address'])
 
+            # Resolve tokens for this hop
+            if direction == 0:
+                hop_token_in = pool['token0']['address']
+                hop_token_out = pool['token1']['address']
+            else:
+                hop_token_in = pool['token1']['address']
+                hop_token_out = pool['token0']['address']
+
             # Encode data for V3 (Fee + PriceLimit)
             dex_data = b''
             if d_type == 1:
-                # GeckoTerminal fee is in pct (e.g. 0.3)
-                # UniV3 fee is in hundredths of bp (e.g. 3000)
+                # UniV3 fee is in hundredths of bp (e.g. 3000 for 0.3%)
                 fee_val = int(float(pool.get('fee', 0.3)) * 10000)
                 dex_data = encode(['uint24', 'uint160'], [fee_val, 0])
 
@@ -156,8 +163,8 @@ class AgentExecutor:
                 {
                     'dex': self.w3.to_checksum_address(dex_addr),
                     'dexType': d_type,
-                    'tokenIn': vault_asset if len(steps) == 0 else token_x,
-                    'tokenOut': token_x if len(steps) == 0 else vault_asset,
+                    'tokenIn': self.w3.to_checksum_address(hop_token_in),
+                    'tokenOut': self.w3.to_checksum_address(hop_token_out),
                     'data': dex_data,
                 }
             )

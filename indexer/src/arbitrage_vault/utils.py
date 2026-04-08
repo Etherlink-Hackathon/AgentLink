@@ -25,6 +25,19 @@ DEFAULT_STRATEGIST = '0x0000000000000000000000000000000000000000'
 POOLS_CACHE_FILE = Path(__file__).parent / 'etherlink_pools.json'
 POOLS_CACHE_TTL = 300  # 5 minutes
 
+# ---------------------------------------------------------------------------
+# Pool Provider Registry
+# ---------------------------------------------------------------------------
+# Each provider is a (dex_id, max_pages) tuple.
+# To add a new DEX, simply append a new entry here — no code changes needed.
+# dex_id must match GeckoTerminal's dex slug for the Etherlink network.
+# Use `GET /networks/etherlink/dexes` to find valid IDs.
+
+POOL_PROVIDERS: list[tuple[str, int]] = [
+    ('oku-trade-etherlink', 10),
+    ('curve-etherlink', 10),
+]
+
 
 def _get_w3() -> Web3:
     rpc_url = os.environ.get('RPC_URL', 'https://node.mainnet.etherlink.com')
@@ -237,20 +250,122 @@ async def get_gas_price(rpc_url: str) -> int:
         return 1000000000  # 1 gwei fallback
 
 
-async def discover_pools(
-    network_id: str = 'etherlink', max_pages: int = 3, force_refresh: bool = False
+# ---------------------------------------------------------------------------
+# Per-DEX Pool Fetcher
+# ---------------------------------------------------------------------------
+
+
+async def _fetch_dex_pools(
+    client: httpx.AsyncClient,
+    dex_id: str,
+    max_pages: int = 10,
+    network_id: str = 'etherlink',
 ) -> list[dict[str, Any]]:
     """
-    Fetch trending pools from GeckoTerminal API for the given network.
-    Caches results locally to avoid rate limits.
+    Fetch ALL pools for a specific DEX using the per-DEX endpoint.
+    Uses /networks/{network}/dexes/{dex}/pools which returns all pools,
+    not just trending ones.
     """
+    pools: list[dict[str, Any]] = []
+
+    for page in range(1, max_pages + 1):
+        if page > 1:
+            await asyncio.sleep(2.0)  # Respect rate limits
+
+        url = f'{GECKO_API_BASE}/networks/{network_id}/dexes/{dex_id}/pools?page={page}&include=base_token,quote_token'
+        try:
+            response = await client.get(url, timeout=15.0, headers={'Accept': 'application/json;version=20230302'})
+
+            if response.status_code == 429:
+                logger.warning('⚠️ Rate limited (429) fetching %s page %d. Backing off...', dex_id, page)
+                await asyncio.sleep(5.0)
+                # Retry once after backoff
+                response = await client.get(url, timeout=15.0, headers={'Accept': 'application/json;version=20230302'})
+                if response.status_code == 429:
+                    logger.warning('⚠️ Still rate limited. Stopping %s at page %d.', dex_id, page)
+                    break
+
+            response.raise_for_status()
+            data = response.json()
+            raw_pools = data.get('data', [])
+            if not raw_pools:
+                logger.info('📄 %s: No more pools at page %d', dex_id, page)
+                break
+
+            included = data.get('included', [])
+            token_map = {item['id']: item['attributes'] for item in included if item['type'] == 'token'}
+
+            page_count = 0
+            for pool in raw_pools:
+                try:
+                    attributes = pool.get('attributes', {})
+                    relationships = pool.get('relationships', {})
+
+                    base_token_id = relationships.get('base_token', {}).get('data', {}).get('id')
+                    quote_token_id = relationships.get('quote_token', {}).get('data', {}).get('id')
+
+                    if not base_token_id or not quote_token_id:
+                        continue
+                    if base_token_id not in token_map or quote_token_id not in token_map:
+                        continue
+
+                    base_price = float(attributes.get('base_token_price_usd') or 0)
+                    quote_price = float(attributes.get('quote_token_price_usd') or 1)
+
+                    pools.append(
+                        {
+                            'address': Web3.to_checksum_address(attributes['address']),
+                            'dex_name': dex_id,
+                            'token0': token_map[base_token_id],
+                            'token1': token_map[quote_token_id],
+                            'price0': base_price / quote_price if quote_price > 0 else 0,
+                            'tvl_usd': float(attributes.get('reserve_in_usd') or 0),
+                            'fee': float(attributes.get('swap_fee_pct') or 0.3),
+                        }
+                    )
+                    page_count += 1
+                except Exception as e:
+                    logger.error('Failed to parse pool from %s: %s', dex_id, e)
+                    continue
+
+            logger.info('📄 %s page %d: imported %d pools', dex_id, page, page_count)
+
+        except httpx.HTTPStatusError as e:
+            logger.error('HTTP error fetching %s page %d: %s', dex_id, page, e)
+            break
+        except Exception as e:
+            logger.error('Error fetching %s page %d: %s', dex_id, page, e)
+            continue
+
+    return pools
+
+
+async def discover_pools(
+    network_id: str = 'etherlink',
+    max_pages: int = 10,
+    force_refresh: bool = False,
+    providers: list[tuple[str, int]] | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Fetch ALL pools from each registered DEX provider.
+
+    Uses the per-DEX endpoint /networks/{network}/dexes/{dex}/pools
+    to get comprehensive coverage instead of just trending pools.
+
+    Args:
+        network_id: GeckoTerminal network slug.
+        max_pages: Default max pages per provider (overridden by provider config).
+        force_refresh: Skip cache and fetch fresh data.
+        providers: Custom provider list; defaults to POOL_PROVIDERS.
+    """
+    active_providers = providers or POOL_PROVIDERS
+
     # 1. Try Cache First (unless forcing refresh)
     if POOLS_CACHE_FILE.exists() and not force_refresh:
         age = time.time() - POOLS_CACHE_FILE.stat().st_mtime
         if age < POOLS_CACHE_TTL:
             try:
                 if POOLS_CACHE_FILE.stat().st_size == 0:
-                    # Treat empty file as no cache
                     raise json.JSONDecodeError('Empty file', '', 0)
                 with POOLS_CACHE_FILE.open() as f:
                     cached_pools = json.load(f)
@@ -259,68 +374,34 @@ async def discover_pools(
             except (json.JSONDecodeError, Exception) as e:
                 logger.warning('Cache invalid or empty, fetching fresh: %s', e)
 
-    # 2. API Fetch
-    all_pools = []
+    # 2. Fetch from ALL providers
+    all_pools: list[dict[str, Any]] = []
+    seen_addresses: set[str] = set()  # Deduplicate by pool address
+
     async with httpx.AsyncClient() as client:
-        for page in range(1, max_pages + 1):
-            if page > 1:
-                await asyncio.sleep(1.5)  # Be nice to GeckoTerminal
+        for dex_id, dex_max_pages in active_providers:
+            logger.info('🔍 Fetching pools from %s (up to %d pages)...', dex_id, dex_max_pages)
+            dex_pools = await _fetch_dex_pools(client, dex_id, max_pages=dex_max_pages, network_id=network_id)
 
-            url = f'{GECKO_API_BASE}/networks/{network_id}/pools?page={page}&include=base_token,quote_token'
-            try:
-                response = await client.get(url, timeout=15.0, headers={'Accept': 'application/json;version=20230302'})
+            new_count = 0
+            for pool in dex_pools:
+                addr_key = pool['address'].lower()
+                if addr_key not in seen_addresses:
+                    seen_addresses.add(addr_key)
+                    all_pools.append(pool)
+                    new_count += 1
 
-                if response.status_code == 429:
-                    logger.warning('⚠️ Rate limited (429) on page %d. Stopping discovery.', page)
-                    break
+            logger.info(
+                '✅ %s: %d pools fetched, %d new (after dedup)',
+                dex_id,
+                len(dex_pools),
+                new_count,
+            )
 
-                response.raise_for_status()
-                data = response.json()
-                pools = data.get('data', [])
-                if not pools:
-                    logger.info('No more pools found at page %d', page)
-                    break
+            # Pause between providers to respect rate limits
+            await asyncio.sleep(2.0)
 
-                included = data.get('included', [])
-                token_map = {item['id']: item['attributes'] for item in included if item['type'] == 'token'}
-
-                page_count = 0
-                for pool in pools:
-                    try:
-                        attributes = pool.get('attributes', {})
-                        relationships = pool.get('relationships', {})
-                        dex_name = relationships.get('dex', {}).get('data', {}).get('id', '').lower()
-
-                        if dex_name not in ['oku-trade-etherlink', 'curve-etherlink']:
-                            continue
-
-                        base_token_id = relationships.get('base_token', {}).get('data', {}).get('id')
-                        quote_token_id = relationships.get('quote_token', {}).get('data', {}).get('id')
-
-                        if not base_token_id or not quote_token_id:
-                            continue
-
-                        all_pools.append(
-                            {
-                                'address': Web3.to_checksum_address(pool['attributes']['address']),
-                                'dex_name': dex_name,
-                                'token0': token_map[base_token_id],
-                                'token1': token_map[quote_token_id],
-                                'price0': float(attributes.get('base_token_price_usd') or 0)
-                                / float(attributes.get('quote_token_price_usd') or 1),
-                                'tvl_usd': float(attributes.get('reserve_in_usd') or 0),
-                                'fee': float(attributes.get('swap_fee_pct') or 0.3),
-                            }
-                        )
-                        page_count += 1
-                    except Exception as e:
-                        logger.error('Failed to parse pool: %s', e)
-                        continue
-
-                logger.info('Page %s: imported %s Oku/Curve pools', page, page_count)
-            except Exception as e:
-                logger.error('Error discovering pools at page %s: %s', page, e)
-                continue
+    logger.info('📊 Total unique pools discovered: %d from %d providers', len(all_pools), len(active_providers))
 
     # 3. Enrich tokens with live USD prices
     if all_pools:
@@ -357,7 +438,7 @@ async def discover_pools(
         except Exception as e:
             logger.error('Failed to save pools cache: %s', e)
 
-    # 4. Final Fallback to Stale Cache
+    # 5. Final Fallback to Stale Cache
     if POOLS_CACHE_FILE.exists():
         try:
             with POOLS_CACHE_FILE.open() as f:

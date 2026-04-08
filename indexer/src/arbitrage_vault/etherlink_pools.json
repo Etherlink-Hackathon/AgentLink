@@ -9,7 +9,7 @@
       "decimals": 6,
       "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
       "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
+      "price_usd": 1.00063804046769
     },
     "token1": {
       "address": "0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab",
@@ -18,10 +18,10 @@
       "decimals": 18,
       "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
       "coingecko_coin_id": "wrapped-xtz",
-      "price_usd": 0.344572
+      "price_usd": 0.342082
     },
-    "price0": 2.894677992728089,
-    "tvl_usd": 787359.769,
+    "price0": 2.927305876528001,
+    "tvl_usd": 779068.2646,
     "fee": 0.3
   },
   {
@@ -34,7 +34,7 @@
       "decimals": 18,
       "image_url": "https://coin-images.coingecko.com/coins/images/39723/large/WETH.PNG?1723733967",
       "coingecko_coin_id": "bridged-weth",
-      "price_usd": 2112.04708841652
+      "price_usd": 2096.69279848142
     },
     "token1": {
       "address": "0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab",
@@ -43,35 +43,10 @@
       "decimals": 18,
       "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
       "coingecko_coin_id": "wrapped-xtz",
-      "price_usd": 0.344572
+      "price_usd": 0.342082
     },
-    "price0": 6129.479726781399,
-    "tvl_usd": 93118.6193,
-    "fee": 0.3
-  },
-  {
-    "address": "0x23a5c960186e256582084Ca5CA8476C453AaD8c4",
-    "dex_name": "oku-trade-etherlink",
-    "token0": {
-      "address": "0x2767fc1048cd0ae4fd952eef09853301c9dc7173",
-      "name": "Sogni AI",
-      "symbol": "SOGNI",
-      "decimals": 18,
-      "image_url": "https://coin-images.coingecko.com/coins/images/67008/large/sogni.jpg?1751450446",
-      "coingecko_coin_id": "sogni-ai",
-      "price_usd": 0.00129445730290361
-    },
-    "token1": {
-      "address": "0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab",
-      "name": "Wrapped XTZ",
-      "symbol": "WXTZ",
-      "decimals": 18,
-      "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
-      "coingecko_coin_id": "wrapped-xtz",
-      "price_usd": 0.344572
-    },
-    "price0": 0.0037608691189008714,
-    "tvl_usd": 197196.3476,
+    "price0": 6133.711683496875,
+    "tvl_usd": 385337.3593,
     "fee": 0.3
   },
   {
@@ -84,7 +59,7 @@
       "decimals": 8,
       "image_url": "https://coin-images.coingecko.com/coins/images/66719/large/wbtc.jpg?1750306081",
       "coingecko_coin_id": "etherlink-bridged-wbtc-etherlink",
-      "price_usd": 68797.0069627878
+      "price_usd": 68533.5329526795
     },
     "token1": {
       "address": "0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab",
@@ -93,10 +68,35 @@
       "decimals": 18,
       "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
       "coingecko_coin_id": "wrapped-xtz",
-      "price_usd": 0.344572
+      "price_usd": 0.342082
     },
-    "price0": 199659.3076709303,
-    "tvl_usd": 1207008.9095,
+    "price0": 200342.4119149195,
+    "tvl_usd": 1239269.143,
+    "fee": 0.3
+  },
+  {
+    "address": "0x23a5c960186e256582084Ca5CA8476C453AaD8c4",
+    "dex_name": "oku-trade-etherlink",
+    "token0": {
+      "address": "0x2767fc1048cd0ae4fd952eef09853301c9dc7173",
+      "name": "Sogni AI",
+      "symbol": "SOGNI",
+      "decimals": 18,
+      "image_url": "https://coin-images.coingecko.com/coins/images/67008/large/sogni.jpg?1751450446",
+      "coingecko_coin_id": "sogni-ai",
+      "price_usd": 0.00126761506552776
+    },
+    "token1": {
+      "address": "0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab",
+      "name": "Wrapped XTZ",
+      "symbol": "WXTZ",
+      "decimals": 18,
+      "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
+      "coingecko_coin_id": "wrapped-xtz",
+      "price_usd": 0.342082
+    },
+    "price0": 0.0036933664288978886,
+    "tvl_usd": 192428.2773,
     "fee": 0.3
   },
   {
@@ -109,7 +109,7 @@
       "decimals": 6,
       "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
       "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
+      "price_usd": 1.00063804046769
     },
     "token1": {
       "address": "0xbfc94cd2b1e55999cfc7347a9313e88702b83d0f",
@@ -118,10 +118,10 @@
       "decimals": 8,
       "image_url": "https://coin-images.coingecko.com/coins/images/66719/large/wbtc.jpg?1750306081",
       "coingecko_coin_id": "etherlink-bridged-wbtc-etherlink",
-      "price_usd": 68797.0069627878
+      "price_usd": 68533.5329526795
     },
-    "price0": 1.4487412399123896e-05,
-    "tvl_usd": 6592.6268,
+    "price0": 1.4604071718977973e-05,
+    "tvl_usd": 6569.1887,
     "fee": 0.3
   },
   {
@@ -134,7 +134,7 @@
       "decimals": 18,
       "image_url": "https://coin-images.coingecko.com/coins/images/12124/large/Curve.png?1696511967",
       "coingecko_coin_id": "curve-dao-token",
-      "price_usd": 0.21115444832216
+      "price_usd": 0.207851586518482
     },
     "token1": {
       "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
@@ -143,35 +143,10 @@
       "decimals": 6,
       "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
       "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
+      "price_usd": 1.00063804046769
     },
-    "price0": 0.21136614999482484,
-    "tvl_usd": 102.5958,
-    "fee": 0.3
-  },
-  {
-    "address": "0x74d80eE400D3026FDd2520265cC98300710b25D4",
-    "dex_name": "curve-etherlink",
-    "token0": {
-      "address": "0x01f07f4d78d47a64f4c3b2b65f513f15be6e1854",
-      "name": "stXTZ token",
-      "symbol": "stXTZ",
-      "decimals": 6,
-      "image_url": "https://coin-images.coingecko.com/coins/images/66203/large/stXTZ_token_200.png?1748669715",
-      "coingecko_coin_id": "stacy-staked-xtz",
-      "price_usd": 0.367201479976592
-    },
-    "token1": {
-      "address": "0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab",
-      "name": "Wrapped XTZ",
-      "symbol": "WXTZ",
-      "decimals": 18,
-      "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
-      "coingecko_coin_id": "wrapped-xtz",
-      "price_usd": 0.344572
-    },
-    "price0": 1.0771878235337369,
-    "tvl_usd": 1678484.6738,
+    "price0": 0.2077190533565303,
+    "tvl_usd": 101.9371,
     "fee": 0.3
   },
   {
@@ -184,7 +159,7 @@
       "decimals": 6,
       "image_url": "https://coin-images.coingecko.com/coins/images/66203/large/stXTZ_token_200.png?1748669715",
       "coingecko_coin_id": "stacy-staked-xtz",
-      "price_usd": 0.367201479976592
+      "price_usd": 0.373746224612415
     },
     "token1": {
       "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
@@ -193,10 +168,135 @@
       "decimals": 6,
       "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
       "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
+      "price_usd": 1.00063804046769
     },
-    "price0": 0.3809859918304035,
-    "tvl_usd": 1.3516,
+    "price0": 0.3572743209988369,
+    "tvl_usd": 1.2635,
+    "fee": 0.3
+  },
+  {
+    "address": "0x74d80eE400D3026FDd2520265cC98300710b25D4",
+    "dex_name": "curve-etherlink",
+    "token0": {
+      "address": "0x01f07f4d78d47a64f4c3b2b65f513f15be6e1854",
+      "name": "stXTZ token",
+      "symbol": "stXTZ",
+      "decimals": 6,
+      "image_url": "https://coin-images.coingecko.com/coins/images/66203/large/stXTZ_token_200.png?1748669715",
+      "coingecko_coin_id": "stacy-staked-xtz",
+      "price_usd": 0.373746224612415
+    },
+    "token1": {
+      "address": "0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab",
+      "name": "Wrapped XTZ",
+      "symbol": "WXTZ",
+      "decimals": 18,
+      "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
+      "coingecko_coin_id": "wrapped-xtz",
+      "price_usd": 0.342082
+    },
+    "price0": 1.0773982611911173,
+    "tvl_usd": 1666928.6177,
+    "fee": 0.3
+  },
+  {
+    "address": "0x2D84D79C852f6842AbE0304b70bBaA1506AdD457",
+    "dex_name": "curve-etherlink",
+    "token0": {
+      "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
+      "name": "USD Coin",
+      "symbol": "USDC",
+      "decimals": 6,
+      "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
+      "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
+      "price_usd": 1.00063804046769
+    },
+    "token1": {
+      "address": "0x2c03058c8afc06713be23e58d2febc8337dbfe6a",
+      "name": "Tether USD",
+      "symbol": "USDT",
+      "decimals": 6,
+      "image_url": "https://coin-images.coingecko.com/coins/images/39662/large/tether.png?1723525619",
+      "coingecko_coin_id": "layerzero-bridged-usdt-etherlink",
+      "price_usd": 0.985668885092991
+    },
+    "price0": 1.0001392010889927,
+    "tvl_usd": 586085.5939,
+    "fee": 0.3
+  },
+  {
+    "address": "0xe9EeF64f377F2cB9163eBb53377e7d391422C9Fb",
+    "dex_name": "oku-trade-etherlink",
+    "token0": {
+      "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
+      "name": "USD Coin",
+      "symbol": "USDC",
+      "decimals": 6,
+      "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
+      "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
+      "price_usd": 1.00063804046769
+    },
+    "token1": {
+      "address": "0xfc24f770f94edbca6d6f885e12d4317320bcb401",
+      "name": "Wrapped Ether",
+      "symbol": "WETH",
+      "decimals": 18,
+      "image_url": "https://coin-images.coingecko.com/coins/images/39723/large/WETH.PNG?1723733967",
+      "coingecko_coin_id": "bridged-weth",
+      "price_usd": 2096.69279848142
+    },
+    "price0": 0.0004694570480618563,
+    "tvl_usd": 1.3796,
+    "fee": 0.3
+  },
+  {
+    "address": "0xd89AffFBB87a4eDb2Eb7Bb5f2C5651CD53934bCa",
+    "dex_name": "oku-trade-etherlink",
+    "token0": {
+      "address": "0x19418d0af0f36865cdfbb2437dfed29ba34d3190",
+      "name": "Lyzi",
+      "symbol": "LYZI",
+      "decimals": 6,
+      "image_url": null,
+      "coingecko_coin_id": null,
+      "price_usd": 0.00303394071503196
+    },
+    "token1": {
+      "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
+      "name": "USD Coin",
+      "symbol": "USDC",
+      "decimals": 6,
+      "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
+      "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
+      "price_usd": 1.00063804046769
+    },
+    "price0": 0.003031419875755677,
+    "tvl_usd": 3069.8211,
+    "fee": 0.3
+  },
+  {
+    "address": "0x0714027E44802b2Ff76389daF5371990CC3a4C24",
+    "dex_name": "curve-etherlink",
+    "token0": {
+      "address": "0x2247b5a46bb79421a314ab0f0b67ffd11dd37ee4",
+      "name": "Midas Basis Trading Token",
+      "symbol": "mBASIS",
+      "decimals": 18,
+      "image_url": "https://coin-images.coingecko.com/coins/images/50593/large/mBASIS_logo.png?1728444389",
+      "coingecko_coin_id": "midas-basis-trading-token",
+      "price_usd": 1.18059646453578
+    },
+    "token1": {
+      "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
+      "name": "USD Coin",
+      "symbol": "USDC",
+      "decimals": 6,
+      "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
+      "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
+      "price_usd": 1.00063804046769
+    },
+    "price0": 1.1798173994158114,
+    "tvl_usd": 2988739.5271,
     "fee": 0.3
   },
   {
@@ -218,7 +318,7 @@
       "decimals": 18,
       "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
       "coingecko_coin_id": "wrapped-xtz",
-      "price_usd": 0.344572
+      "price_usd": 0.342082
     },
     "price0": 0.0012191503950294146,
     "tvl_usd": 4903.9966,
@@ -234,7 +334,7 @@
       "decimals": 6,
       "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
       "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
+      "price_usd": 1.00063804046769
     },
     "token1": {
       "address": "0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab",
@@ -243,7 +343,7 @@
       "decimals": 18,
       "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
       "coingecko_coin_id": "wrapped-xtz",
-      "price_usd": 0.344572
+      "price_usd": 0.342082
     },
     "price0": 2.9141774734081296,
     "tvl_usd": 37.2852,
@@ -268,7 +368,7 @@
       "decimals": 18,
       "image_url": "https://coin-images.coingecko.com/coins/images/51172/large/WXTZ_Logo_Black.png?1750764795",
       "coingecko_coin_id": "wrapped-xtz",
-      "price_usd": 0.344572
+      "price_usd": 0.342082
     },
     "price0": 191915.78864671948,
     "tvl_usd": 1.1809,
@@ -293,7 +393,7 @@
       "decimals": 6,
       "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
       "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
+      "price_usd": 1.00063804046769
     },
     "price0": 1.0002665876642758,
     "tvl_usd": 992823.6869,
@@ -318,7 +418,7 @@
       "decimals": 8,
       "image_url": "https://coin-images.coingecko.com/coins/images/66719/large/wbtc.jpg?1750306081",
       "coingecko_coin_id": "etherlink-bridged-wbtc-etherlink",
-      "price_usd": 68797.0069627878
+      "price_usd": 68533.5329526795
     },
     "price0": 7.820889188820494e-05,
     "tvl_usd": 30.9868,
@@ -343,85 +443,10 @@
       "decimals": 6,
       "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
       "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
+      "price_usd": 1.00063804046769
     },
     "price0": 1.1144890692111467,
     "tvl_usd": 1005705.5152,
-    "fee": 0.3
-  },
-  {
-    "address": "0x0714027E44802b2Ff76389daF5371990CC3a4C24",
-    "dex_name": "curve-etherlink",
-    "token0": {
-      "address": "0x2247b5a46bb79421a314ab0f0b67ffd11dd37ee4",
-      "name": "Midas Basis Trading Token",
-      "symbol": "mBASIS",
-      "decimals": 18,
-      "image_url": "https://coin-images.coingecko.com/coins/images/50593/large/mBASIS_logo.png?1728444389",
-      "coingecko_coin_id": "midas-basis-trading-token",
-      "price_usd": 1.18059646453578
-    },
-    "token1": {
-      "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
-      "name": "USD Coin",
-      "symbol": "USDC",
-      "decimals": 6,
-      "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
-      "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
-    },
-    "price0": 1.1798173994158114,
-    "tvl_usd": 2988739.5271,
-    "fee": 0.3
-  },
-  {
-    "address": "0x2D84D79C852f6842AbE0304b70bBaA1506AdD457",
-    "dex_name": "curve-etherlink",
-    "token0": {
-      "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
-      "name": "USD Coin",
-      "symbol": "USDC",
-      "decimals": 6,
-      "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
-      "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
-    },
-    "token1": {
-      "address": "0x2c03058c8afc06713be23e58d2febc8337dbfe6a",
-      "name": "Tether USD",
-      "symbol": "USDT",
-      "decimals": 6,
-      "image_url": "https://coin-images.coingecko.com/coins/images/39662/large/tether.png?1723525619",
-      "coingecko_coin_id": "layerzero-bridged-usdt-etherlink",
-      "price_usd": 0.994159971187346
-    },
-    "price0": 1.0003520357744289,
-    "tvl_usd": 581230.4527,
-    "fee": 0.3
-  },
-  {
-    "address": "0xe9EeF64f377F2cB9163eBb53377e7d391422C9Fb",
-    "dex_name": "oku-trade-etherlink",
-    "token0": {
-      "address": "0x796ea11fa2dd751ed01b53c372ffdb4aaa8f00f9",
-      "name": "USD Coin",
-      "symbol": "USDC",
-      "decimals": 6,
-      "image_url": "https://coin-images.coingecko.com/coins/images/39584/large/USDC-icon.webp?1723013425",
-      "coingecko_coin_id": "layerzero-bridged-usdc-etherlink",
-      "price_usd": 0.997424985310303
-    },
-    "token1": {
-      "address": "0xfc24f770f94edbca6d6f885e12d4317320bcb401",
-      "name": "Wrapped Ether",
-      "symbol": "WETH",
-      "decimals": 18,
-      "image_url": "https://coin-images.coingecko.com/coins/images/39723/large/WETH.PNG?1723733967",
-      "coingecko_coin_id": "bridged-weth",
-      "price_usd": 2112.04708841652
-    },
-    "price0": 0.0004854368448327163,
-    "tvl_usd": 1.3474,
     "fee": 0.3
   }
 ]

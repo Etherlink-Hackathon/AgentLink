@@ -38,6 +38,13 @@ async def run_standalone():
     env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
     load_dotenv(env_path)
     
+    # Testing overrides
+    os.environ['FORCE_EXECUTION'] = 'true'
+    os.environ['ALLOW_MULTI_HOP_EXECUTION'] = 'true'
+    if os.getenv('DRY_RUN') is None:
+        os.environ['DRY_RUN'] = 'true'  # Default to dry run for safety
+        print("ℹ️ DRY_RUN=true set by default for testing.")
+    
     user = os.getenv('POSTGRES_USER', 'huydo')
     password = os.getenv('POSTGRES_PASSWORD', 'huydo2105')
     db_name = os.getenv('POSTGRES_DB', 'huydo')
@@ -59,21 +66,27 @@ async def run_standalone():
         print(f"Failed to connect to database: {e}")
         return
 
-    # 3. Scouting Phase (from scout_opportunities.py)
+    # 3. Scouting Phase
     print("\n" + "🔎 " + "="*76)
-    print("SCOUTING FOR OPPORTUNITIES (15 Pages)")
+    print("SCOUTING FOR OPPORTUNITIES (All DEX Providers)")
     print("="*80)
     
     rpc_url = os.getenv('RPC_URL', 'https://node.mainnet.etherlink.com')
     xtz_price = await get_xtz_price()
     gas_price = await get_gas_price(rpc_url)
     
-    pools = await discover_pools(max_pages=15, force_refresh=True)
+    # Force refresh to use the new per-DEX provider architecture
+    pools = await discover_pools(force_refresh=True)
     if not pools:
         print("No pools found.")
         return
 
-    opportunities = detect_multi_hop_arbitrage(pools)
+    # Asset token is the vault's held token (can be overridden by ASSET_TOKEN_ADDRESS env var)
+    # Defaults to None (search all tokens) if not set.
+    # In production, this comes from vault.asset_address in the DB.
+    asset_token_address = os.getenv('ASSET_TOKEN_ADDRESS', None)
+
+    opportunities = detect_multi_hop_arbitrage(pools, asset_token_address=asset_token_address)
 
     if not opportunities:
         print("No arbitrage routes detected.")
@@ -87,8 +100,8 @@ async def run_standalone():
         min_profit_margin=0.001
     )
 
-    print(f'{"ROUTE":<45} | {"HOPS":>4} | {"TYPE":<6} | {"SPREAD %":>8} | {"RETURN %":>8} | {"INPUT $":>8} | {"OUTPUT $":>9} | {"GAS $":>7} | {"NET $":>9} | {"FEES%":>5} | DECISION')
-    print('-' * 175)
+    print(f'\n{"ROUTE":<45} | {"HOPS":>4} | {"TYPE":<6} | {"SPREAD %":>8} | {"RETURN %":>8} | {"INPUT $":>10} | {"OUTPUT $":>10} | {"GAS $":>7} | {"NET $":>10} | {"MIN TVL":>10} | {"FEES%":>5} | DECISION')
+    print('-' * 195)
     for ev in evals:
         opp = ev['opportunity']
         decision = ev['decision']
@@ -103,26 +116,25 @@ async def run_standalone():
             color = '\033[93m'   # yellow (skip)
         reset = '\033[0m'
         route_label = opp['pair_id'][:43]
+        min_tvl = opp.get('min_pool_tvl', 0)
         print(
             f"{color}{route_label:<45} | {opp.get('hops', 2):>4} | {route_type:<6} | "
             f"{opp.get('spread_pct', 0)*100:>7.3f}% | {opp.get('return_pct', 0)*100:>7.3f}% | "
-            f"{opp.get('input_amount_usd', 0):>8.2f} | {opp.get('output_amount_usd', 0):>9.2f} | "
-            f"{ev.get('gas_cost_usd', 0):>7.4f} | {ev['net_profit_usd']:>9.4f} | "
+            f"{opp.get('input_amount_usd', 0):>10.2f} | {opp.get('output_amount_usd', 0):>10.2f} | "
+            f"{ev.get('gas_cost_usd', 0):>7.4f} | {ev['net_profit_usd']:>10.4f} | "
+            f"{min_tvl:>10.0f} | "
             f"{opp.get('total_fee_pct', 0):>5.2f}% | {decision}{reset}"
         )
-    print("="*175 + "\n")
+    print("="*195 + "\n")
 
-    # Only pass direct (2-leg) opportunities to the agent for execution
-    direct_opportunities = [opp for opp in opportunities if opp.get('is_direct')]
-
-    # 4. Run the arbitrage hook with discovered opportunities
+    # 4. Run the arbitrage hook with all discovered opportunities (Scout + Execute)
     ctx = MockHookContext()
     vault_address = os.getenv('VAULT_ADDRESS', '0x895Ea1c1A1EF1EceF0Fb822e33BE0bB9d493559d')
     
     print(f"Starting agent review for vault {vault_address}...")
     try:
         async with transactions.in_transaction():
-            await run_arbitrage(ctx, vault_address, min_profit_usd=0.01, opportunities=direct_opportunities)
+            await run_arbitrage(ctx, vault_address, min_profit_usd=0.01, opportunities=opportunities)
         print("Agent review cycle completed successfully.")
 
         # 5. Execution Phase (NEW)
@@ -150,6 +162,7 @@ async def run_standalone():
                     # Refresh from DB to see result
                     await decision.refresh_from_db()
                     status_color = '\033[92m' if decision.status == 'SENT' else '\033[91m'
+                    reset = '\033[0m'
                     print(f"Decision {decision.id} result: {status_color}{decision.status}{reset}")
                     if decision.tx_hash:
                         print(f"Transaction Hash: {decision.tx_hash}")
