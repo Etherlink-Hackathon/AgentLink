@@ -11,7 +11,7 @@ Instead of allowing an AI agent full control over user funds, this system uses a
 
 ---
 
-![AgentLink Demo](./pitch.mp4)
+[![AgentLink Demo Video](https://img.youtube.com/vi/zEGujUXE8_M/maxresdefault.jpg)](https://youtu.be/zEGujUXE8_M)
 
 ---
 
