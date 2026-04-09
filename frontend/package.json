@@ -43,8 +43,8 @@
 		"vue-meta": "^3.0.0-alpha.8",
 		"vue-router": "^4.2.4",
 		"vue3-apexcharts": "^1.11.1",
-		"wagmi": "1.4.7",
-		"@wagmi/connectors": "3.1.7"
+		"wagmi": "3.6.1",
+		"@wagmi/connectors": "8.0.1"
 	},
 	"devDependencies": {
 		"@vitejs/plugin-vue": "^4.3.4",
