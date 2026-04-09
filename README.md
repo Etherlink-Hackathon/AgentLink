@@ -1,8 +1,8 @@
-# Etherlink Omni-DEX Arbitrage Agent
+# AgentLink
 
 ## Overview
 
-The **Etherlink Omni-DEX Arbitrage Agent** is a full-stack automated DeFi trading system powered by the [OpenClaw](https://openclaw.ai) framework and protected by an **ERC-4626 Vault**.
+**AgentLink** is a full-stack automated DeFi trading system powered by the **Gemini AI Agent** and protected by an **ERC-4626 Vault**.
 
 Instead of allowing an AI agent full control over user funds, this system uses a "Strategist" architecture:
 1. Users deposit capital into a smart contract vault.
@@ -10,6 +10,11 @@ Instead of allowing an AI agent full control over user funds, this system uses a
 3. The agent calls the vault, which mathematically guarantees that the funds are never withdrawn to the agent, only passed through verified rebalancing operations.
 
 ---
+<div align="center">
+  <video src="./pitch.mp4" width="100%" controls autoplay muted loop>
+    Your browser does not support the video tag.
+  </video>
+</div>
 
 ## Architecure 
 
