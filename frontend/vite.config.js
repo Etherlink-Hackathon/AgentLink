@@ -3,9 +3,7 @@ import { visualizer } from "rollup-plugin-visualizer"
 import replace from "rollup-plugin-re"
 import vue from "@vitejs/plugin-vue"
 import path from "path"
-
 import nodePolyfills from "vite-plugin-node-stdlib-browser"
-const production = process.env.NODE_ENV === "production";
 
 const aliases = {
 	"~": path.resolve(__dirname, "./src"),
@@ -31,13 +29,8 @@ export default (ctx) => {
 
 	return defineConfig({
 		plugins: [
+			nodePolyfills(),
 			vue(),
-			nodePolyfills({
-				include: [
-					"node_modules/**/*.js",
-					new RegExp("node_modules/.vite/.*js"),
-				],
-			}),
 			...(process.env.STATS
 				? [
 					{
@@ -66,20 +59,13 @@ export default (ctx) => {
 		],
 		build: {
 			rollupOptions: {
-				plugins: [
-					nodePolyfills()
-				]
+				external: [],
 			},
 			// ↓ Needed for build if using WalletConnect and other providers
 			commonjsOptions: {
 				transformMixedEsModules: true
 			}
 		},
-		define: {
-			global: "window",
-			"process.env": {},
-		},
-
 		optimizeDeps: {
 			include: ["shiki"]
 		},
@@ -97,3 +83,4 @@ export default (ctx) => {
 		},
 	})
 }
+

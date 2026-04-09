@@ -44,8 +44,7 @@
 		"vue-router": "^4.2.4",
 		"vue3-apexcharts": "^1.11.1",
 		"wagmi": "1.4.7",
-		"@wagmi/connectors": "3.1.7",
-		"@safe-global/safe-apps-provider": "0.17.0"
+		"@wagmi/connectors": "3.1.7"
 	},
 	"devDependencies": {
 		"@vitejs/plugin-vue": "^4.3.4",

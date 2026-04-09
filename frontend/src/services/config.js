@@ -82,7 +82,7 @@ export const config = createConfig({
     metaMask(),
     injected(),
     // walletConnect({ projectId }),
-    safe(),
+    // safe(),
   ],
   transports: {
     [activeChainConfig.id]: http(activeChainConfig.rpcUrls.default.http[0])
