@@ -36,7 +36,7 @@ const chartOptions = {
 	tooltip: {
 		theme: 'dark',
 		y: {
-			formatter: (val) => `$${val}`
+			formatter: (val) => `${val} XTZ`
 		}
 	}
 }
@@ -44,7 +44,7 @@ const chartOptions = {
 const series = ref([
 	{
 		name: 'Yield Revenue',
-		data: [420, 580, 490, 710, 630, 850]
+		data: [0.02, 0.03, 0.05, 0.07, 0.13, 0.2]
 	}
 ])
 </script>

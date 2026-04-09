@@ -9,7 +9,7 @@ class ArbitrageHeuristics:
     Core mathematical invariants and safety checks for arbitrage.
     """
 
-    def __init__(self, min_profit_usd: float = 0.1, max_slippage_bps: int = 50):
+    def __init__(self, min_profit_usd: float = 0.001, max_slippage_bps: int = 50):
         self.min_profit_usd = min_profit_usd
         self.max_slippage_bps = max_slippage_bps
 
@@ -27,6 +27,7 @@ class ArbitrageHeuristics:
 
         # 1. Profitability Floor
         if net_profit < min_p:
+            logger.info('Profit $%.4f below floor $%.4f', net_profit, min_p)
             return {
                 'verdict': 'REJECT',
                 'reason': f'Profit ${net_profit:.4f} below floor ${min_p:.4f}',
@@ -36,10 +37,12 @@ class ArbitrageHeuristics:
         # 2. Spread Quality Check
         # GeckoTerminal uses 0.0001 for 0.01%.
         if spread_pct < 0.0001:  # 0.01%
+            logger.info('Spread %.4f%% too tight', spread_pct * 100)
             return {'verdict': 'REJECT', 'reason': f'Spread {spread_pct * 100:.4f}% too tight', 'confidence': 0.9}
 
         # 3. Path Sanitation (for 2-leg direct routes only)
         if not opportunity.get('route') and (not opportunity.get('buy_pool') or not opportunity.get('sell_pool')):
+            logger.info('Incomplete path data')
             return {'verdict': 'REJECT', 'reason': 'Incomplete path data', 'confidence': 1.0}
 
         return {

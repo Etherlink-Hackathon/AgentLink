@@ -94,7 +94,7 @@ class GeminiSoul:
 
         # Extract values for prompt formatting
         config = strategy_config or {}
-        min_profit_usd = config.get('min_profit_usd', 0.1)
+        min_profit_usd = config.get('min_profit_usd', 0.001)
         max_slippage_bps = config.get('max_slippage_bps', 50)
         max_slippage_pct = max_slippage_bps / 100.0
 

@@ -17,11 +17,12 @@ const props = defineProps({
 
 const tvl = computed(() => {
 	const val = parseFloat(props.vault?.tvl || 0)
-	if (val >= 1e6) return abbreviateNumber(val)
-	return val.toLocaleString(undefined, { 
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2 
-	})
+	// if (val >= 1e6) return abbreviateNumber(val)
+	// return val.toLocaleString(undefined, { 
+	// 	minimumFractionDigits: 2,
+	// 	maximumFractionDigits: 2 
+	// })
+	return val;
 })
 
 const revenue = computed(() => {
@@ -44,8 +45,6 @@ const apy = computed(() => {
 const activeStrategies = computed(() => {
 	return props.vault?.vaultsPools?.length || 0
 })
-console.log(chainConfig)
-console.log(currentNetwork)
 </script>
 
 <template>
@@ -66,7 +65,7 @@ console.log(currentNetwork)
 		</div>
 		<div :class="$style.divider" />
 		<div :class="$style.stat">
-			<Text size="12" weight="600" color="tertiary" :class="$style.label">ACTIVE STRATEGIES</Text>
+			<Text size="12" weight="600" color="tertiary" :class="$style.label">ACTIVE DEX POOLS</Text>
 			<Text size="24" weight="700" color="primary">{{ activeStrategies }}</Text>
 		</div>
 	</div>

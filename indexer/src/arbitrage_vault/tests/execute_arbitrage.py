@@ -51,7 +51,7 @@ async def run_execution():
         defaults={
             'name': 'Manual Test Agent',
             'details': {'role': 'TESTER'},
-            'strategy_config': {'min_profit_usd': 0.1, 'max_slippage_bps': 50},
+            'strategy_config': {'min_profit_usd': 0.001, 'max_slippage_bps': 50},
         },
     )
 

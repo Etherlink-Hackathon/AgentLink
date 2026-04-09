@@ -11,8 +11,17 @@ MIN_TVL_THRESHOLD = 1000.0
 # Canonical WXTZ address (lowercase)
 WXTZ_ADDRESS = os.getenv('WXTZ_ADDRESS', '0xc9b53ab2679f573e480d01e0f49e2b5cfb7a3eab')
 
-# Dynamic trade size: use 1% of the smallest pool's USD liquidity in the route
-DEFAULT_TVL_MULTIPLIER = 0.01
+# ---------------------------------------------------------------------------
+# Trade sizing configuration
+# ---------------------------------------------------------------------------
+# Realistic USD amounts to test for each route.
+# The bot simulates each amount and picks the one with the highest net profit.
+# Override via env: TRADE_AMOUNTS_USD=10,50,100,500,1000,5000
+_TRADE_AMOUNTS_RAW = os.getenv('TRADE_AMOUNTS_USD', '10,50,100,500,1000,5000')
+DEFAULT_TRADE_AMOUNTS = [float(x.strip()) for x in _TRADE_AMOUNTS_RAW.split(',') if x.strip()]
+
+# Safety cap: never trade more than this % of the route's smallest pool TVL
+MAX_TRADE_PCT_OF_TVL = float(os.getenv('MAX_TRADE_PCT_OF_TVL', '0.10'))  # 10%
 
 # Max hops for cycle search
 DEFAULT_MAX_HOPS = 4
@@ -114,7 +123,7 @@ def simulate_route(route: list[dict[str, Any]], trade_size_usd: float) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Cycle detection — no WXTZ anchor, any token can be the start
+# Cycle detection — anchor to vault token or search all
 # ---------------------------------------------------------------------------
 
 
@@ -151,25 +160,32 @@ def find_cycles_from(
 def find_all_cycles(
     graph: dict[str, list[dict[str, Any]]],
     max_hops: int = DEFAULT_MAX_HOPS,
+    anchor_token: str | None = None,
 ) -> list[list[dict[str, Any]]]:
     """
     Find all simple cycles across all tokens.
-    Deduplicates by frozenset of pool addresses so we don't report mirrored routes.
+    If anchor_token is provided, ONLY search cycles that start (and end) at that token.
+    Otherwise, search all tokens and deduplicate mirrored routes.
     """
     seen_pool_sets: set[frozenset[str]] = set()
     all_cycles: list[list[dict[str, Any]]] = []
 
-    tokens = list(graph.keys())
-    for _i, start_token in enumerate(tokens):
+    if anchor_token:
+        # Focused search: only cycles starting from the vault's asset token
+        tokens_to_search = [anchor_token.lower()]
+        logger.info('🎯 Anchoring cycle search to vault token: %s', anchor_token)
+    else:
+        tokens_to_search = list(graph.keys())
+
+    for start_token in tokens_to_search:
         found = find_cycles_from(graph, start_token, max_hops)
         for cycle in found:
-            # Sort pools by address to create a unique fingerprint for the cycle
             key = frozenset(h['pool']['address'].lower() for h in cycle)
             if key not in seen_pool_sets:
                 seen_pool_sets.add(key)
                 all_cycles.append(cycle)
 
-    logger.info('🔄 Cycle Discovery: Found %d unique cycles across %d tokens', len(all_cycles), len(tokens))
+    logger.info('🔄 Cycle Discovery: Found %d unique cycles across %d tokens', len(all_cycles), len(tokens_to_search))
     return all_cycles
 
 
@@ -196,14 +212,32 @@ def detect_multi_hop_arbitrage(
     pools: list[dict[str, Any]],
     max_hops: int = DEFAULT_MAX_HOPS,
     min_return_pct: float = -0.05,
+    asset_token_address: str | None = None,
+    trade_amounts: list[float] | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Find all profitable arbitrage routes across all tokens.
-    Iteratively solves for the optimal trade size to maximize USD profit per route.
+    Find all profitable arbitrage routes.
+    If asset_token_address is provided, only search cycles that start (and end)
+    at that token — matching the vault's actual held asset.
+    Profit is always expressed in USD using price_usd from the pool cache.
+
+    Trade sizing: Tests each amount in trade_amounts (default: DEFAULT_TRADE_AMOUNTS)
+    and picks the one with the highest net USD profit.
+    Each amount is capped at MAX_TRADE_PCT_OF_TVL of the route's smallest pool.
     """
     graph = build_pool_graph(pools)
-    all_cycles = find_all_cycles(graph, max_hops)
+
+    # Resolve anchor: use provided asset address (lowercased) or search all
+    anchor = asset_token_address.lower() if asset_token_address else None
+    if anchor and anchor not in graph:
+        logger.warning('⚠️  Vault asset %s not found in pool graph — falling back to all-token search', anchor)
+        anchor = None
+
+    all_cycles = find_all_cycles(graph, max_hops, anchor_token=anchor)
     logger.info('🔎 Checking %d unique cycles for optimal profit...', len(all_cycles))
+
+    amounts_to_test = trade_amounts or DEFAULT_TRADE_AMOUNTS
+    logger.info('💵 Testing trade amounts: %s', ', '.join(f'${a:,.0f}' for a in amounts_to_test))
 
     opportunities = []
     for route in all_cycles:
@@ -212,20 +246,21 @@ def detect_multi_hop_arbitrage(
         theoretical_out = simulate_route(route, 0.01)
         spread_pct = (theoretical_out - 0.01) / 0.01 if theoretical_out > 0 else -1.0
 
-        # 2. Solve for Optimal Trade Size
-        # We test different percentages of the min liquidity in the route
+        # 2. Determine max safe trade size from route liquidity
         min_pool_tvl = min(h['pool'].get('tvl_usd', 0.0) for h in route)
         if min_pool_tvl <= 0.1:
             continue
 
+        max_safe_amount = min_pool_tvl * MAX_TRADE_PCT_OF_TVL
+
+        # 3. Test each trade amount and find the best one
         best_size = 0.0
         best_profit = -999999.0
         best_out = 0.0
 
-        # Test 0.01%, 0.1%, 0.5%, 1%, 2%, 5% of min TVL
-        test_multipliers = [0.0001, 0.001, 0.005, 0.01, 0.02, 0.05]
-        for mult in test_multipliers:
-            size = min(2000.0, min_pool_tvl * mult)  # cap at $2k for safety
+        for raw_amount in amounts_to_test:
+            # Cap amount at the safe maximum for this route
+            size = min(raw_amount, max_safe_amount)
             if size < 0.01:
                 continue
 
@@ -262,6 +297,7 @@ def detect_multi_hop_arbitrage(
                 'total_fee_pct': total_fee_pct,
                 'is_direct': is_direct,
                 'has_low_liquidity': has_low_liquidity,
+                'min_pool_tvl': min_pool_tvl,
                 # Legacy execution keys
                 'buy_pool': route[0]['pool'] if is_direct else None,
                 'sell_pool': route[1]['pool'] if is_direct else None,
@@ -338,8 +374,16 @@ async def evaluate_profitability(
         reason = ''
 
         if not opp.get('is_direct', True):
-            decision = 'SCOUT'
-            reason = f'Multi-hop ({hops} legs) — detection only, execution pending'
+            if os.getenv('ALLOW_MULTI_HOP_EXECUTION') == 'true':
+                if net_profit_usd > 0:
+                    decision = 'EXECUTE'
+                    reason = f'Multi-hop profitable: ${net_profit_usd:.4f} net'
+                else:
+                    decision = 'SKIP'
+                    reason = f'Multi-hop unprofitable: ${net_profit_usd:.4f}'
+            else:
+                decision = 'SCOUT'
+                reason = f'Multi-hop ({hops} legs) — detection only, execution pending'
         elif net_profit_usd <= 0:
             reason = f'Negative net profit: ${net_profit_usd:.4f} (Gas: ${gas_cost_usd:.4f})'
         elif opp.get('return_pct', 0) < min_profit_margin:

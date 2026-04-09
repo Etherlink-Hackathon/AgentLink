@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def run_arbitrage(
     ctx: HookContext,
     vault_address: str,
-    min_profit_usd: float = 0.1,
+    min_profit_usd: float = 0.001,
     opportunities: list[dict[str, Any]] | None = None,
 ) -> None:
     """
@@ -63,7 +63,7 @@ async def run_arbitrage(
 
     # 2. Discover and filter opportunities
     if opportunities is None:
-        pools = await discover_pools()
+        pools = await discover_pools(force_refresh=True)
         if not pools:
             return
 
@@ -77,7 +77,7 @@ async def run_arbitrage(
             logger.warning('No allowed pools found for scanning.')
             return
 
-        opportunities = detect_multi_hop_arbitrage(pools)
+        opportunities = detect_multi_hop_arbitrage(pools, asset_token_address=getattr(vault, 'asset_address', None))
     else:
         logger.info('Using %d externally provided opportunities', len(opportunities))
 
@@ -94,7 +94,7 @@ async def run_arbitrage(
     for ev in evaluations:
         opp = ev['opportunity']
 
-        # Multi-hop SCOUT: log but don't execute or save
+        # Multi-hop SCOUT: log but don't skip recording
         if ev['decision'] == 'SCOUT':
             logger.info(
                 '🔭 SCOUT route (%d hops, +%.2f%%): %s',
@@ -102,7 +102,6 @@ async def run_arbitrage(
                 opp.get('return_pct', 0) * 100,
                 opp['pair_id'],
             )
-            continue
 
         # Combine base profitability with strategic heuristics
         h_verdict = heuristics.evaluate(
@@ -110,7 +109,16 @@ async def run_arbitrage(
         )
 
         heuristics_passed = ev['decision'] == 'EXECUTE' and h_verdict['verdict'] == 'APPROVE'
-        status = 'EXECUTE' if heuristics_passed else 'PENDING'
+
+        # Determine status: EXECUTE if heuristics/AI pass or if FORCE_EXECUTION is set
+        force_exec = os.getenv('FORCE_EXECUTION') == 'true'
+        status = 'EXECUTE' if (heuristics_passed or force_exec) else ev['decision']
+
+        if force_exec and status != 'EXECUTE':
+            status = 'EXECUTE'
+            logger.warning(
+                '⚠️ FORCE_EXECUTION enabled: marking %s as EXECUTE regardless of profitability', opp['pair_id']
+            )
 
         # 3. AI Review (if heuristics approve)
         ai_review = None
@@ -146,6 +154,7 @@ async def run_arbitrage(
             reason=ai_review.get('reason') if ai_review else ev.get('reason'),
             opportunity_details={
                 'pair_id': opp['pair_id'],
+                'route': opp.get('route'),
                 'net_profit_usd': float(ev['net_profit_usd']),
                 'return_pct': float(opp.get('return_pct', opp.get('spread_pct', 0))),
                 'hops': opp.get('hops', 2),
