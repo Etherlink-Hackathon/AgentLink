@@ -13,7 +13,7 @@ Instead of allowing an AI agent full control over user funds, this system uses a
 
 ## Demo Video
 
-![AgentLink Demo](https://github.com/Etherlink-Hackathon/AgentLink/raw/main/pitch.mp4)
+[![AgentLink Demo](https://img.youtube.com/vi/zEGujUXE8_M/maxresdefault.jpg)](https://youtu.be/zEGujUXE8_M)
 
 ---
 
