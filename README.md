@@ -10,11 +10,10 @@ Instead of allowing an AI agent full control over user funds, this system uses a
 3. The agent calls the vault, which mathematically guarantees that the funds are never withdrawn to the agent, only passed through verified rebalancing operations.
 
 ---
-<div align="center">
-  <video src="./pitch.mp4" width="100%" controls autoplay muted loop>
-    Your browser does not support the video tag.
-  </video>
-</div>
+
+![AgentLink Demo](./pitch.mp4)
+
+---
 
 ## Architecure 
 
