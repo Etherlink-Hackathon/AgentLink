@@ -13,6 +13,7 @@ class Vault(Model):
     pools = fields.ManyToManyField('models.DexPool', related_name='vaults')
     total_assets = fields.DecimalField(max_digits=36, decimal_places=18, default=0)
     total_supply = fields.DecimalField(max_digits=36, decimal_places=18, default=0)
+    status = fields.CharField(max_length=20, default='running')
 
     class Meta:
         table = 'vaults'

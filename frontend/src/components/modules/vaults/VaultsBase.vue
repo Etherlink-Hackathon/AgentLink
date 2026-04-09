@@ -35,7 +35,7 @@ export default defineComponent({
 			pairs: [],
 			statuses: [
 				{ name: "New", active: false, icon: "event_new", color: "purple" },
-				{ name: "Running", active: false, icon: "event_active", color: "yellow" },
+				{ name: "Active", active: false, icon: "event_active", color: "yellow" },
 				{ name: "Finished", active: false, icon: "event_finished", color: "green" },
 			],
 			dexs: [
@@ -129,7 +129,7 @@ export default defineComponent({
 					.map((d) => d.name)
 				const dexMatch =
 					activeDexs.length === 0 || 
-					vault.vaultsPools.some(vp => activeDexs.includes(vp.dexPools.dex))
+					vault.vaultsPools.some(vp => vp.dexPools.name.includes(activeDexs))
 
 				return pairMatch && statusMatch && dexMatch
 			})

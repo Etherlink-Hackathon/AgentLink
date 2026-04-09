@@ -27,7 +27,7 @@ class ArbitrageHeuristics:
 
         # 1. Profitability Floor
         if net_profit < min_p:
-            logger.info(f'Profit ${net_profit:.4f} below floor ${min_p:.4f}')
+            logger.info('Profit $%.4f below floor $%.4f', net_profit, min_p)
             return {
                 'verdict': 'REJECT',
                 'reason': f'Profit ${net_profit:.4f} below floor ${min_p:.4f}',
@@ -37,7 +37,7 @@ class ArbitrageHeuristics:
         # 2. Spread Quality Check
         # GeckoTerminal uses 0.0001 for 0.01%.
         if spread_pct < 0.0001:  # 0.01%
-            logger.info(f'Spread {spread_pct * 100:.4f}% too tight')
+            logger.info('Spread %.4f%% too tight', spread_pct * 100)
             return {'verdict': 'REJECT', 'reason': f'Spread {spread_pct * 100:.4f}% too tight', 'confidence': 0.9}
 
         # 3. Path Sanitation (for 2-leg direct routes only)

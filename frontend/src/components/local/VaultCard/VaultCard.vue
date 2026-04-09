@@ -3,7 +3,7 @@ import { computed } from "vue"
 import Badge from "@ui/Badge.vue"
 import Tooltip from "@ui/Tooltip.vue"
 import { getCurrencyIcon, getDexIcon } from "@utils/misc"
-import { abbreviateNumber } from "@utils/amounts"
+import { abbreviateNumber, toFix } from "@utils/amounts"
 import { verifiedMakers, NETWORK_TYPE, chainConfig } from "~/services/config"
 import Icon from "~/components/icons/Icon.vue"
 import { currentNetwork } from "@sdk"
@@ -108,7 +108,7 @@ const statusColor = computed(() => {
 			</Flex>
 			<Flex direction="column" gap="4">
 				<span :class="$style.footer_label">EST. REVENUE (24H)</span>
-				<span :class="$style.footer_value">{{ vault.revenue || '0.00' }} {{ chainConfig[currentNetwork.value]?.nativeCurrency?.symbol || 'ꜩ' }}</span>
+				<span :class="$style.footer_value">{{ (toFix(vault.revenue, 2)) }} {{ chainConfig[currentNetwork.value]?.nativeCurrency?.symbol || 'ꜩ' }}</span>
 			</Flex>
 			<Flex direction="column" align="end" gap="4">
 				<span :class="$style.footer_label">APY</span>
