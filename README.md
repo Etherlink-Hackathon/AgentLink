@@ -11,9 +11,9 @@ Instead of allowing an AI agent full control over user funds, this system uses a
 
 ---
 
-<div align="center">
-  <video src="pitch.mp4" width="100%" height="auto" controls></video>
-</div>
+## Demo Video
+
+![AgentLink Demo](https://github.com/Etherlink-Hackathon/AgentLink/raw/main/pitch.mp4)
 
 ---
 
